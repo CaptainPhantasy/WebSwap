@@ -1,20 +1,161 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+<p align="center">
+  <img src="https://repository-images.githubusercontent.com/1218644799/98367d5d-e916-4381-ac10-d93e31293d15" alt="WebSwap — Drop in a URL. Same content, hotter design." width="100%" />
+</p>
 
-# Run and deploy your AI Studio app
+# WebSwap
 
-This contains everything you need to run your app locally.
+**She's the same. Just hotter.** 😉
 
-View your app in AI Studio: https://ai.studio/apps/c2e8f872-fdd0-495e-adc9-43c53862b7f6
+Drop in a URL. WebSwap ingests the whole site — words, images, brand bones, the parts that were already working — hands you twelve design directions to choose from, and rebuilds it as a real three-page demo you can actually show a client.
 
-## Run Locally
+The client picks the one they like. You skip six weeks of discovery theater and get to start building the site they already said yes to.
 
-**Prerequisites:**  Node.js
+That's the whole pitch.
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Who's behind this
+
+Hi. I'm Douglas. I run **Floyd's Labs**, which sounds like a studio and is actually a studio, but in the sense that it's me, a very aggressive espresso machine, and a rotating cast of AI agents who are significantly better at typing than I am.
+
+WebSwap is a **Legacy AI** project. Which is a nice way of saying: the agents built it. I paced around, drank coffee, muttered things like *"just scrape the thing first"*, and took at least one nap that might have been load-bearing.
+
+Full credit: **Claude Code** did the actual building — the scraper, the SSRF guard, the twelve templates, ninety-four passing tests, the whole three-page demo pipeline. I'm in the commit history as a reviewer, which is generous framing.
+
+The machines are very good at this now. We might as well let them cook.
+
+---
+
+## Install it
+
+```bash
+npm install
+cp .env.example .env.local   # paste your ANTHROPIC_API_KEY
+npm run dev                  # http://localhost:3000
+```
+
+No onboarding flow. No tooltip friend named Sparky. If you can paste a URL into a text field, you're qualified.
+
+---
+
+## What it actually does
+
+### 1. Reads the client's real site
+
+Crawls up to five pages, prioritized: `/`, `/about`, `/services`, `/products`, `/work`, `/contact`. Pulls headings, paragraphs, navigation, CTAs, OG tags, hero images, logos, inline-CSS-detected brand colors, the fonts the site is actually using, emails, phone numbers, and the social links from the bottom of the footer that everybody forgets about.
+
+Refuses to fetch anything that resolves to a private address. Your AWS metadata endpoint is safe from us. So are the neighbor's printer and whatever `127.0.0.1` is hiding.
+
+### 2. Shows you twelve directions that don't look like each other
+
+Because Themeforest has forty thousand templates and they are all the same template.
+
+| Template | Vibe |
+| --- | --- |
+| Editorial Serif | Magazine-grade negative space. Drop caps where it matters. |
+| Dark Luxury Monolith | Black canvas. Hairlines. Restrained gold. Very *please don't speak loudly*. |
+| Brutalist Grid | Numbered sections. Unexpected rotations. Slight aggression. |
+| Warm Organic | Terracotta and sage. Italic Fraunces. The kind of warm that sells candles. |
+| Atmospheric Glass | Indigo gradients. Frosted cards. Cinematic. |
+| Clean Utility | White. Dense. For products that have a VP of Compliance. |
+| Oversized Typographic | Headlines at 16vw. One accent color, used three times. |
+| Bold Color Monolith | One saturated color. The whole page. Pick wisely. |
+| SaaS Split | 50/50 hero. Gradient behind a product shot. You've seen this one. It works. |
+| Prestige Hospitality | Off-white. Italic ligatures. Deep emerald. Hotels love this. |
+| Technical Data Grid | Monospace everything. Terminal green. Status dots. Developers audibly exhale. |
+| Sculptural Minimal | Ink on bone. One statement per screen. Gallery energy. |
+
+Each one is a full spec — palette, typography pair, layout DNA, best-fit industries — not a mood word. Pick one. Hit regenerate. Same content, completely different animal.
+
+### 3. Builds a real three-page demo
+
+Home, a secondary page (about / services / work — whichever your client leans on hardest), and a conversion page. Each page is structurally distinct, because nobody wants three pages in a row that are just the hero in different colors. Real scraped copy, paraphrased for rhythm. Real scraped image URLs. Preview in browser. Desktop/mobile toggle. Swap templates. Regenerate. Watch the whole thing become a different site while the words stay the same.
+
+### 4. Exports HTML you can actually hand off
+
+One button. You get a zip:
+
+```
+index.html
+about.html        (or services.html, etc.)
+contact.html
+styles.css
+README.txt
+```
+
+Opens in a browser. Renders. Uses Google Fonts that match the chosen template. Every user-provided string is HTML-escaped on the way out, so a client with a dangerous sense of humor in their company name won't accidentally execute JavaScript on their own marketing site.
+
+You're welcome.
+
+---
+
+## Why this exists
+
+Because my clients have been through the agency experience.
+
+You know the one. Four weeks of discovery workshops. A brand audit deck with stock photos of natural light. Three creative directions that cost more than a used Honda. An iteration round. A line item titled *Strategic Alignment* priced like an entire kitchen appliance. An invoice rendered in a serif font to make the whole thing feel inevitable.
+
+Meanwhile the client just wants to know: *will my site look good, which kind of good, and can I see it?*
+
+WebSwap answers that in about the time it takes to make a pour-over.
+
+---
+
+## How it's built
+
+- **Front end:** React 19, Vite 6, Tailwind 4, Motion for the smooth parts, Recharts for the dashboard.
+- **Server:** One Node process. Express 4 with Vite middleware in dev, Express + static bundle in prod.
+- **Model:** Claude Opus 4.7. Adaptive thinking, `effort: "xhigh"`, structured JSON output against a strict schema, streamed at 32K output tokens. Prompt-caching on the system prompt + template catalog (first redesign warms the cache, every one after that is cheap).
+- **Scrape:** Cheerio for parsing, node-fetch for fetching, a hand-rolled SSRF guard I trust more than I trust myself.
+- **Secrets:** `ANTHROPIC_API_KEY` lives exclusively in `process.env` on the server. Not in any client bundle. Not in `vite.config.ts`. Not in localStorage. If you find it in DevTools I owe you a drink and a bug report.
+
+---
+
+## It's tested
+
+```bash
+npm test
+```
+
+**94 of 94 passing** at the tip of this branch.
+
+- **75 unit tests.** Every template's palette validated. Twenty-two IP addresses run through the SSRF guard. The scraper against a fixture with every weird HTML pattern I could think of — lazy-loaded images, quoted font names, data-URI exclusion, the works. All twelve section kinds rendered to React *and* static HTML. Export zip validated end-to-end. A real `<script>` payload in the content to prove the escaping holds.
+- **19 integration tests.** Real Express server booted. Every endpoint exercised. Including a live round-trip to the Anthropic API with a deliberately-bad key to prove the SDK is actually wired up and the auth error maps to a clean 401.
+
+If these pass on your box, they pass everywhere.
+
+---
+
+## API, for people who want to skip the UI
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| GET | `/api/health` | status, model, template count |
+| GET | `/api/templates` | twelve template specs |
+| POST | `/api/scrape` | `{ url }` → `{ site }` |
+| POST | `/api/redesign` | `{ site, templateId }` → `{ redesign }` |
+
+## Project layout
+
+```
+server.ts         Express host + /api/redesign → Claude Opus 4.7
+src/
+  scraper.ts      Crawler, SSRF guard, extractors
+  templates.ts    The twelve templates
+  render.tsx      React preview, static HTML, zip export
+  types.ts        Shared types
+  App.tsx         Three-stage UI: scrape → pick → preview
+  main.tsx        React bootstrap
+  index.css       Tailwind + display fonts
+tests/
+  smoke.ts        75 unit tests
+  http.ts         19 integration tests
+```
+
+---
+
+## Shipped by
+
+**Floyd's Labs** · a **Legacy AI** project · built with **Claude Code**.
+
+Douglas supervised. By which I mean Douglas was nearby. Possibly asleep. Definitely caffeinated. The agents handled the rest, and frankly, they've got this.
