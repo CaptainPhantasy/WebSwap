@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "test": "tsx tests/smoke.ts && tsx tests/http.ts",
+    "test:smoke": "tsx tests/smoke.ts",
+    "test:http": "tsx tests/http.ts",
     "start": "node server.ts"
   },
   "dependencies": {

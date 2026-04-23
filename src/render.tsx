@@ -416,7 +416,7 @@ export function renderSectionPreview(
   }
 }
 
-function esc(s: string | undefined): string {
+export function esc(s: string | undefined): string {
   if (!s) return "";
   return s
     .replace(/&/g, "&amp;")
@@ -426,7 +426,7 @@ function esc(s: string | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-function sectionHTML(s: RedesignSection, t: DesignTemplate): string {
+export function sectionHTML(s: RedesignSection, t: DesignTemplate): string {
   const p = t.palette;
   switch (s.kind) {
     case "hero":
@@ -551,7 +551,7 @@ function sectionHTML(s: RedesignSection, t: DesignTemplate): string {
   }
 }
 
-function pageHTML(page: RedesignPage, t: DesignTemplate, redesign: Redesign): string {
+export function pageHTML(page: RedesignPage, t: DesignTemplate, redesign: Redesign): string {
   const body = page.sections.map((s) => sectionHTML(s, t)).join("\n");
   const nav = page.nav
     .slice(0, 5)
@@ -604,7 +604,7 @@ function pageFilename(page: RedesignPage, redesign: Redesign): string {
   return `${page.slug || `page-${idx + 1}`}.html`;
 }
 
-function styleSheet(t: DesignTemplate): string {
+export function styleSheet(t: DesignTemplate): string {
   const p = t.palette;
   const upper = t.typography.headingCase === "uppercase";
   const italic = t.typography.headingStyle === "italic";
