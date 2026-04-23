@@ -74,7 +74,7 @@ export async function safeFetchHtml(targetUrl: string): Promise<string | null> {
     try {
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "SiteReimaginerBot/2.0 (+demo)",
+          "User-Agent": "WebSwapBot/2.0 (+demo)",
           Accept: "text/html,application/xhtml+xml",
         },
         redirect: "manual",

@@ -156,7 +156,7 @@ export default function App() {
             <div className="w-8 h-8 bg-gradient-to-tr from-orange-600 to-amber-400 rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            SiteReimaginer<span className="text-orange-500">.ai</span>
+            Web<span className="text-orange-500">Swap</span>
           </button>
           <div className="text-xs text-gray-500 hidden md:block">
             Powered by Claude Opus 4.7 · 12 designer templates
@@ -254,7 +254,7 @@ export default function App() {
 
       <footer className="border-t border-white/5 py-12">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 opacity-60 text-sm">
-          <p>© 2026 SiteReimaginer AI. Built with Claude Opus 4.7.</p>
+          <p>© 2026 WebSwap. Built with Claude Opus 4.7.</p>
           <div className="flex gap-6">
             <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> SSRF-guarded scraper</span>
             <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Server-side API key</span>

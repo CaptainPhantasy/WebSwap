@@ -1,4 +1,8 @@
-# SiteReimaginer
+<p align="center">
+  <img src="./public/social.png" alt="WebSwap — Drop in a URL. Same content, hotter design." width="100%" />
+</p>
+
+# WebSwap
 
 ### Or: A Web Design Agency Quoted Three Weeks, We Took a Coffee Break
 
@@ -12,7 +16,7 @@
 
 ## What This Is (Or: The Thing That Exists Now)
 
-This is **SiteReimaginer**.
+This is **WebSwap**.
 
 You paste a URL. It quietly reads the actual site — copy, images, brand tokens, navigation, the parts that matter. Then it asks you, the human, to choose one of twelve high-level design directions. Then **Claude Opus 4.7** rebuilds it as a full three-page demo using your client's real content, real imagery, and a real opinion about layout.
 
@@ -230,7 +234,7 @@ tests/
 
 ## Closing Thought (Or: The Entire Point)
 
-There is a version of this timeline where SiteReimaginer takes a quarter.
+There is a version of this timeline where WebSwap takes a quarter.
 
 There is a version where it takes seventeen Slack threads, four agency partners, and a line item called *Iterative Visual Exploration*.
 
@@ -240,6 +244,6 @@ You are reading the README to the third version.
 
 ---
 
-*Floyd's Labs and Claude Code present — **SiteReimaginer***
+*Floyd's Labs and Claude Code present — **WebSwap***
 
 > *"If it works, ship it. If it takes a quarter, you built the discovery phase instead of the website."*

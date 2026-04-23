@@ -721,7 +721,7 @@ export async function buildExportZip(
   zip.file("styles.css", styleSheet(template));
   zip.file(
     "README.txt",
-    `SiteReimaginer AI demo export
+    `WebSwap demo export
 Brand: ${redesign.brand.name}
 Template: ${template.name} (${template.id})
 Pages: ${redesign.pages.map((p, i) => `${i + 1}. ${p.title}`).join(", ")}

@@ -354,7 +354,7 @@ async function startServer() {
   });
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`SiteReimaginer running at http://localhost:${PORT}`);
+    console.log(`WebSwap running at http://localhost:${PORT}`);
     console.log(`Model: ${ANTHROPIC_MODEL} · Templates: ${DESIGN_TEMPLATES.length}`);
   });
 }
