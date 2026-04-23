@@ -1,0 +1,6 @@
+{
+  "name": "SiteReimaginer AI",
+  "description": "An AI-powered platform that analyzes existing websites, reimagines them with cutting-edge design and motion, and provides a ready-to-deploy HTML package.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["AI Website Analysis", "Automated Redesign", "HTML Export", "Responsive Checker"]
+}
