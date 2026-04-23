@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/social.png" alt="WebSwap — Drop in a URL. Same content, hotter design." width="100%" />
+  <img src="https://repository-images.githubusercontent.com/1218644799/98367d5d-e916-4381-ac10-d93e31293d15" alt="WebSwap — Drop in a URL. Same content, hotter design." width="100%" />
 </p>
 
 # WebSwap
