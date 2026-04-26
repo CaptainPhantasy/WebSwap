@@ -16,13 +16,11 @@ That's the whole pitch.
 
 ## Who's behind this
 
-Hi. I'm Douglas. I run **Floyd's Labs**, which sounds like a studio and is actually a studio, but in the sense that it's me, a very aggressive espresso machine, and a rotating cast of AI agents who are significantly better at typing than I am.
+Hi. I'm Douglas. I run **Floyd's Labs**, which sounds like a studio and is actually a studio, but in the sense that it's me, a very aggressive espresso machine, and **Floyd** doing the heavy lifting when the brief gets weird.
 
-WebSwap is a **Legacy AI** project. Which is a nice way of saying: the agents built it. I paced around, drank coffee, muttered things like *"just scrape the thing first"*, and took at least one nap that might have been load-bearing.
+WebSwap is a **Floyd** project. Douglas set the direction, paced around, muttered things like *"just scrape the thing first"*, and Floyd built the bulk of the workflow.
 
-Full credit: **Claude Code** did the actual building — the scraper, the SSRF guard, the twelve templates, ninety-four passing tests, the whole three-page demo pipeline. I'm in the commit history as a reviewer, which is generous framing.
-
-The machines are very good at this now. We might as well let them cook.
+That's the arrangement. It works.
 
 ---
 
@@ -30,8 +28,8 @@ The machines are very good at this now. We might as well let them cook.
 
 ```bash
 npm install
-cp .env.example .env.local   # paste your ANTHROPIC_API_KEY
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local   # paste your API key
+npm run dev                  # http://localhost:10337
 ```
 
 No onboarding flow. No tooltip friend named Sparky. If you can paste a URL into a text field, you're qualified.
@@ -105,9 +103,9 @@ WebSwap answers that in about the time it takes to make a pour-over.
 
 - **Front end:** React 19, Vite 6, Tailwind 4, Motion for the smooth parts, Recharts for the dashboard.
 - **Server:** One Node process. Express 4 with Vite middleware in dev, Express + static bundle in prod.
-- **Model:** Claude Opus 4.7. Adaptive thinking, `effort: "xhigh"`, structured JSON output against a strict schema, streamed at 32K output tokens. Prompt-caching on the system prompt + template catalog (first redesign warms the cache, every one after that is cheap).
+- **AI:** Server-side redesign generation with structured JSON output against a strict schema and cached system context.
 - **Scrape:** Cheerio for parsing, node-fetch for fetching, a hand-rolled SSRF guard I trust more than I trust myself.
-- **Secrets:** `ANTHROPIC_API_KEY` lives exclusively in `process.env` on the server. Not in any client bundle. Not in `vite.config.ts`. Not in localStorage. If you find it in DevTools I owe you a drink and a bug report.
+- **Secrets:** API credentials live exclusively in `process.env` on the server. Not in any client bundle. Not in `vite.config.ts`. Not in localStorage. If you find them in DevTools I owe you a drink and a bug report.
 
 ---
 
@@ -120,7 +118,7 @@ npm test
 **94 of 94 passing** at the tip of this branch.
 
 - **75 unit tests.** Every template's palette validated. Twenty-two IP addresses run through the SSRF guard. The scraper against a fixture with every weird HTML pattern I could think of — lazy-loaded images, quoted font names, data-URI exclusion, the works. All twelve section kinds rendered to React *and* static HTML. Export zip validated end-to-end. A real `<script>` payload in the content to prove the escaping holds.
-- **19 integration tests.** Real Express server booted. Every endpoint exercised. Including a live round-trip to the Anthropic API with a deliberately-bad key to prove the SDK is actually wired up and the auth error maps to a clean 401.
+- **19 integration tests.** Real Express server booted. Every endpoint exercised. Including a live round-trip with a deliberately-bad API key to prove the server-side client is actually wired up and the auth error maps to a clean 401.
 
 If these pass on your box, they pass everywhere.
 
@@ -138,7 +136,7 @@ If these pass on your box, they pass everywhere.
 ## Project layout
 
 ```
-server.ts         Express host + /api/redesign → Claude Opus 4.7
+server.ts         Express host + /api/redesign orchestration
 src/
   scraper.ts      Crawler, SSRF guard, extractors
   templates.ts    The twelve templates
@@ -156,6 +154,6 @@ tests/
 
 ## Shipped by
 
-**Floyd's Labs** · a **Legacy AI** project · built with **Claude Code**.
+**Floyd's Labs** · built with **Floyd**.
 
-Douglas supervised. By which I mean Douglas was nearby. Possibly asleep. Definitely caffeinated. The agents handled the rest, and frankly, they've got this.
+Douglas supervised. By which I mean Douglas was nearby. Possibly asleep. Definitely caffeinated. Floyd handled the heavy lifting.

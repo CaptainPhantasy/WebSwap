@@ -1,6 +1,6 @@
 {
   "name": "WebSwap",
-  "description": "Drop in a URL. WebSwap ingests the content, keeps the soul, and serves it back in a whole new look. Powered by Claude Opus 4.7.",
+  "description": "Drop in a URL. WebSwap ingests the content, keeps the soul, and serves it back in a whole new look.",
   "requestFramePermissions": [],
   "majorCapabilities": ["Website Ingest", "AI Restyle", "3-Page Demo Export", "Responsive Checker"]
 }
