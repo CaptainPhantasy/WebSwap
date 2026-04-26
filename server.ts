@@ -272,6 +272,9 @@ async function startServer() {
   const openai = new OpenAI({
     apiKey: PORTKEY_API_KEY,
     baseURL: "https://api.portkey.ai/v1",
+    defaultHeaders: {
+      "x-portkey-virtual-key": "portkeyclaude",
+    },
   });
 
   const app = express();
