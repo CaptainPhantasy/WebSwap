@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import dotenv from "dotenv";
 import { DESIGN_TEMPLATES, getTemplate } from "./src/templates.ts";
 import { assertPublicHost, scrapeSite } from "./src/scraper.ts";
@@ -15,9 +15,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT) || 10337;
-const ANTHROPIC_MODEL = "claude-opus-4-7";
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-
+// Model routed through Portkey; string unchanged — Portkey routes to the configured Anthropic provider.
+const MODEL = "claude-opus-4-7";
+const PORTKEY_API_KEY = process.env.PORTKEY_API_KEY;
 
 const REDESIGN_SCHEMA = {
   type: "object",
@@ -212,10 +212,10 @@ function systemPrompt(): string {
   ].join("\n");
 }
 
-async function callClaudeRedesign(
+async function callRedesign(
   site: ScrapedSite,
   templateId: string,
-  client: Anthropic,
+  client: OpenAI,
 ): Promise<Redesign> {
   const template = getTemplate(templateId);
   if (!template) throw new Error(`Unknown templateId: ${templateId}`);
@@ -231,30 +231,30 @@ async function callClaudeRedesign(
     `Produce the 3-page redesign JSON now. Return an object matching the required schema exactly. No prose outside the JSON.`,
   ].join("\n");
 
-  const stream = client.messages.stream({
-    model: ANTHROPIC_MODEL,
+  // Collect streamed content into a buffer for reliable parsing.
+  let text = "";
+  const stream = await client.chat.completions.create({
+    model: MODEL,
     max_tokens: 32_000,
-    thinking: { type: "adaptive" },
-    output_config: {
-      effort: "xhigh",
-      format: { type: "json_schema", schema: REDESIGN_SCHEMA as any },
-    } as any,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt(),
-        cache_control: { type: "ephemeral" },
-      },
+    stream: true,
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "Redesign", schema: REDESIGN_SCHEMA },
+    },
+    messages: [
+      { role: "system", content: systemPrompt() },
+      { role: "user", content: userPrompt },
     ],
-    messages: [{ role: "user", content: userPrompt }],
   });
 
-  const finalMessage = await stream.finalMessage();
-  const textBlock = finalMessage.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Claude returned no text block");
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? "";
+    text += delta;
   }
-  const parsed = JSON.parse(textBlock.text) as Redesign;
+
+  // Strip any markdown fences the model might emit.
+  const jsonStr = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+  const parsed = JSON.parse(jsonStr) as Redesign;
   parsed.templateId = templateId;
   parsed.palette = template.palette;
   parsed.typography = template.typography;
@@ -262,14 +262,18 @@ async function callClaudeRedesign(
 }
 
 async function startServer() {
-  if (!ANTHROPIC_API_KEY) {
+  if (!PORTKEY_API_KEY) {
     console.error(
-      "Missing ANTHROPIC_API_KEY. Copy .env.example to .env.local and set your key.",
+      "Missing PORTKEY_API_KEY. Copy .env.example to .env.local and set your key.",
     );
     process.exit(1);
   }
 
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+  const openai = new OpenAI({
+    apiKey: PORTKEY_API_KEY,
+    baseURL: "https://api.portkey.ai/v1",
+  });
+
   const app = express();
 
   app.use(express.json({ limit: "2mb" }));
@@ -282,7 +286,7 @@ async function startServer() {
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      model: ANTHROPIC_MODEL,
+      model: MODEL,
       templateCount: DESIGN_TEMPLATES.length,
     });
   });
@@ -321,14 +325,16 @@ async function startServer() {
       return res.status(400).json({ error: `Unknown templateId: ${templateId}` });
     }
     try {
-      const redesign = await callClaudeRedesign(site as ScrapedSite, templateId, anthropic);
+      const redesign = await callRedesign(site as ScrapedSite, templateId, openai);
       res.json({ redesign });
     } catch (e: any) {
       console.error("[redesign] failed:", e);
+      // Map OpenAI error types to HTTP status codes.
+      const err = e as { status?: number };
       const status =
-        e instanceof Anthropic.RateLimitError ? 429 :
-        e instanceof Anthropic.AuthenticationError ? 401 :
-        e instanceof Anthropic.BadRequestError ? 400 :
+        err.status === 429 ? 429 :
+        err.status === 401 ? 401 :
+        err.status === 400 ? 400 :
         500;
       res.status(status).json({ error: e?.message || "Redesign failed" });
     }
@@ -355,7 +361,7 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`WebSwap running at http://localhost:${PORT}`);
-    console.log(`Model: ${ANTHROPIC_MODEL} · Templates: ${DESIGN_TEMPLATES.length}`);
+    console.log(`Model: ${MODEL} · Templates: ${DESIGN_TEMPLATES.length}`);
   });
 }
 

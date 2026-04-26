@@ -34,6 +34,7 @@
 | ID | Created | Title | Status | Owner | Evidence / Links | Resolution Proof |
 |---|---|---|---|---|---|---|
 | ISSUE-0001 | 2026-04-25 20:32 EDT | Bootstrap governance and align public surfaces with claimed port 10337 | Closed | Claude | `bootstrap.sh --init`; `bash /Volumes/SanDisk1Tb/SSOT/port-claim.sh claim 10337 WebSwap SanDisk1Tb`; `FLOYD.md`; `SSOT/WebSwap_SSOT.md`; `README.md`; `metadata.json`; `.gitignore`; `port-registry.json` | `npm run lint`; `npm test` (75 smoke + 19 HTTP passing); `npm run build`; `bootstrap.sh --verify` passed 9/9 |
+| ISSUE-0002 | 2026-04-25 20:47 EDT | Migrate redesign provider from Anthropic SDK to Portkey AI Gateway | Resolved | Claude | `server.ts`; `package.json`; `.env.example`; `FLOYD.md`; `SSOT/WebSwap_SSOT.md` | `npm run lint`; `npm test`; `npm run build` |
 
 ---
 

@@ -143,7 +143,7 @@ npm run lint && npm test && npm run build && bash /Volumes/SanDisk1Tb/.supercach
 |----|------|-----------|
 | R1 | Any outbound site fetch or redirect hop must pass through `assertPublicHost()` before network I/O. | `src/scraper.ts` is the SSRF boundary; bypassing it can hit loopback, RFC1918, metadata, or unsupported protocols. |
 | R2 | Any user-originated string inserted into exported HTML must be escaped with `esc()` before interpolation. | Static demo exports are built as raw HTML strings in `src/render.tsx`; unescaped content becomes an injection bug. |
-| R3 | `ANTHROPIC_API_KEY` remains server-side only and must never be surfaced in the browser bundle or client storage. | The redesign provider credential is the only secret in this app; leaking it is an immediate security incident. |
+| R3 | `PORTKEY_API_KEY` remains server-side only and must never be surfaced in the browser bundle or client storage. | The Portkey credential is the only secret in this app; leaking it is an immediate security incident. |
 
 ---
 
@@ -161,7 +161,7 @@ npm run lint && npm test && npm run build && bash /Volumes/SanDisk1Tb/.supercach
 
 | Variable | Required | Purpose | Example |
 |----------|----------|---------|---------|
-| `ANTHROPIC_API_KEY` | Yes | Server-side redesign API credential | `sk-ant-...` |
+| `PORTKEY_API_KEY` | Yes | Portkey AI Gateway credential | `pk-...` |
 | `PORT` | No | Override the HTTP server port; defaults to 10337 | `10337` |
 | `DISABLE_HMR` | No | Disable Vite HMR in constrained sandboxes | `true` |
 

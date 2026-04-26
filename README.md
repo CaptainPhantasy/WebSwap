@@ -28,7 +28,7 @@ That's the arrangement. It works.
 
 ```bash
 npm install
-cp .env.example .env.local   # paste your API key
+cp .env.example .env.local   # paste your PORTKEY_API_KEY
 npm run dev                  # http://localhost:10337
 ```
 
@@ -103,7 +103,7 @@ WebSwap answers that in about the time it takes to make a pour-over.
 
 - **Front end:** React 19, Vite 6, Tailwind 4, Motion for the smooth parts, Recharts for the dashboard.
 - **Server:** One Node process. Express 4 with Vite middleware in dev, Express + static bundle in prod.
-- **AI:** Server-side redesign generation with structured JSON output against a strict schema and cached system context.
+- **AI:** Redesign generation via Portkey AI Gateway — OpenAI-compatible client routes to Anthropic Opus 4.7 with structured JSON output and automatic retries.
 - **Scrape:** Cheerio for parsing, node-fetch for fetching, a hand-rolled SSRF guard I trust more than I trust myself.
 - **Secrets:** API credentials live exclusively in `process.env` on the server. Not in any client bundle. Not in `vite.config.ts`. Not in localStorage. If you find them in DevTools I owe you a drink and a bug report.
 
@@ -136,7 +136,7 @@ If these pass on your box, they pass everywhere.
 ## Project layout
 
 ```
-server.ts         Express host + /api/redesign orchestration
+server.ts         Express host + Portkey-routed redesign generation
 src/
   scraper.ts      Crawler, SSRF guard, extractors
   templates.ts    The twelve templates

@@ -49,7 +49,7 @@ async function jsonReq(
     env: {
       ...process.env,
       PORT: String(PORT),
-      ANTHROPIC_API_KEY: "sk-ant-invalid-test-key-for-auth-error-mapping",
+      PORTKEY_API_KEY: "pk-invalid-test-key-for-auth-error-mapping",
       NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],

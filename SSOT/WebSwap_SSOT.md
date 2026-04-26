@@ -71,6 +71,7 @@ This pattern is deliberate — it reinforces evidence-first thinking and makes t
 |---|---|---|---|
 | 2026-04-25 20:32 EDT | Claimed port 10337 and aligned runtime/docs away from forbidden port 3000. | Governance forbids port 3000 and requires every bound port to be claimed and documented. | Claude |
 | 2026-04-25 20:32 EDT | Removed underlying model/runtime references from public repo surfaces while preserving internal implementation details. | Public-facing docs and metadata must not disclose the underlying runtime powering Floyd. | Claude |
+| 2026-04-25 20:47 EDT | Migrated from direct Anthropic SDK to OpenAI SDK routed through Portkey AI Gateway. | Portkey consolidates provider routing, provides fallbacks and retries, and keeps the model string (`claude-opus-4-7`) unchanged. | Claude |
 
 ---
 
@@ -83,7 +84,7 @@ This pattern is deliberate — it reinforces evidence-first thinking and makes t
 | `vite` | `^6.2.0` | Frontend bundling and dev middleware | critical |
 | `cheerio` | `^1.2.0` | HTML parsing during site intake | supporting |
 | `jszip` | `^3.10.1` | Static export zip generation | supporting |
-| `@anthropic-ai/sdk` | `^0.88.0` | Server-side redesign provider client | critical |
+| `openai` | `^4.0.0` | Server-side redesign client via Portkey AI Gateway | critical |
 
 ---
 
