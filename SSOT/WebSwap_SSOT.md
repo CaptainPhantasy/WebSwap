@@ -62,6 +62,8 @@ This pattern is deliberate — it reinforces evidence-first thinking and makes t
 - A single `server.ts` process hosts the JSON API and attaches Vite middleware in dev or serves the static client bundle in production.
 - Site intake is constrained by `src/scraper.ts`: up to five priority pages, redirect-limited fetches, DNS/IP SSRF guards, and capped response sizes before content is turned into structured site data.
 - Export generation lives in `src/render.tsx`, which renders previews in React and builds a static multi-page HTML/CSS zip with escaped user-originated strings.
+- Server-side build flow persists scraped sites as workspaces under the configured WebSwap package root, asks only for a compact typed blueprint when a model is configured, and deterministically builds the final `Redesign`, preview HTML, and ZIP locally.
+- Page classification engine (`src/pageClassifier.ts`) analyses scraped content to determine the business category (service-trade, hospitality, retail, creative, tech-saas, etc.) and routes secondary pages accordingly — a nightclub gets a menu or events page, not services.
 
 ---
 
@@ -72,6 +74,8 @@ This pattern is deliberate — it reinforces evidence-first thinking and makes t
 | 2026-04-25 20:32 EDT | Claimed port 10337 and aligned runtime/docs away from forbidden port 3000. | Governance forbids port 3000 and requires every bound port to be claimed and documented. | Claude |
 | 2026-04-25 20:32 EDT | Removed underlying model/runtime references from public repo surfaces while preserving internal implementation details. | Public-facing docs and metadata must not disclose the underlying runtime powering Floyd. | Claude |
 | 2026-04-25 20:47 EDT | Migrated from direct Anthropic SDK to OpenAI SDK routed through Portkey AI Gateway. | Portkey consolidates provider routing, provides fallbacks and retries, and keeps the model string (`claude-opus-4-7`) unchanged. | Claude |
+| 2026-04-26 19:43 EDT | Cut final redesign generation over to server-side deterministic workspace builds. | Returning raw model JSON let invalid shapes reach preview/export; local builds guarantee complete pages and export artifacts while model output is limited to a typed blueprint. | Floyd |
+| 2026-04-26 20:41 EDT | Added page classification engine that determines business category from scraped content and names pages appropriately. | Hardcoded `services` as the fallback page name was wrong for non-service industries like hospitality, retail, and creative studios. | Floyd |
 
 ---
 
@@ -84,7 +88,8 @@ This pattern is deliberate — it reinforces evidence-first thinking and makes t
 | `vite` | `^6.2.0` | Frontend bundling and dev middleware | critical |
 | `cheerio` | `^1.2.0` | HTML parsing during site intake | supporting |
 | `jszip` | `^3.10.1` | Static export zip generation | supporting |
-| `openai` | `^4.0.0` | Server-side redesign client via Portkey AI Gateway | critical |
+| `openai` | `^4.104.0` | Optional typed blueprint client via configurable AI gateway | supporting |
+| `zod` | `^3.25.76` | Runtime schema validation for build blueprints and generated contracts | supporting |
 
 ---
 
@@ -120,6 +125,9 @@ Every sweep of this SSOT must append one or more entries here. Never edit or rem
 | 2026-04-25 20:32 EDT | Architecture Facts / Scraping | SSRF guard blocks private addresses before each fetch/redirect hop | `src/scraper.ts:45-72`; `tests/http.ts:115-137` | 100% |
 | 2026-04-25 20:32 EDT | Architecture Facts / Export | Static export escapes user-originated strings before building HTML | `src/render.tsx:419-427`; `src/render.tsx:523-560` | 100% |
 | 2026-04-25 20:32 EDT | Deployment | Repo remote is `github.com/CaptainPhantasy/WebSwap` and local development target is `http://localhost:10337` | `gh repo view CaptainPhantasy/WebSwap`; `server.ts:17`; `port-registry.json:88-91` | 100% |
+| 2026-04-26 19:43 EDT | Architecture Facts / Server-side build | Scrape returns `workspaceId` + `siteSummary`; build jobs create preview and export artifacts under workspaces | `server.ts`; `src/workspaces.ts`; `src/localBuilder.ts`; `tests/http.ts`; `npm test` (75 smoke + 5 builder + 19 HTTP passing) | 100% |
+| 2026-04-26 19:43 EDT | Architecture Facts / Blueprint validation | Invalid blueprint shapes fall back to deterministic local blueprint instead of reaching preview/export | `src/blueprint.ts`; `tests/workspace-builder.ts`; `npm test` (invalid model blueprint fallback test passing) | 100% |
+| 2026-04-26 20:41 EDT | Architecture Facts / Page classification | Site scrapes are analysed for business category and secondary page routing via keyword and path pattern matching | `src/pageClassifier.ts`; `src/blueprint.ts`; `src/localBuilder.ts`; manual test: plumbing→services, restaurant→menu, nightclub→events, retail→products, creative→gallery | 100% |
 
 ---
 
@@ -127,3 +135,5 @@ Every sweep of this SSOT must append one or more entries here. Never edit or rem
 
 - 2026-04-25T20:30:32-0400 — Initialized SSOT.
 - 2026-04-25 20:32 EDT — Replaced template placeholders with verified stack, port, deployment, and invariant facts.
+- 2026-04-26 19:43 EDT — Recorded deterministic workspace build cutover and verification evidence.
+- 2026-04-26 20:41 EDT — Recorded page classification engine and template CSS infrastructure.

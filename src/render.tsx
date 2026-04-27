@@ -598,7 +598,7 @@ function linkToPage(href: string, redesign: Redesign): string {
   return href || "#";
 }
 
-function pageFilename(page: RedesignPage, redesign: Redesign): string {
+export function pageFilename(page: RedesignPage, redesign: Redesign): string {
   const idx = redesign.pages.indexOf(page);
   if (idx === 0) return "index.html";
   return `${page.slug || `page-${idx + 1}`}.html`;

@@ -35,6 +35,8 @@
 |---|---|---|---|---|---|---|
 | ISSUE-0001 | 2026-04-25 20:32 EDT | Bootstrap governance and align public surfaces with claimed port 10337 | Closed | Claude | `bootstrap.sh --init`; `bash /Volumes/SanDisk1Tb/SSOT/port-claim.sh claim 10337 WebSwap SanDisk1Tb`; `FLOYD.md`; `SSOT/WebSwap_SSOT.md`; `README.md`; `metadata.json`; `.gitignore`; `port-registry.json` | `npm run lint`; `npm test` (75 smoke + 19 HTTP passing); `npm run build`; `bootstrap.sh --verify` passed 9/9 |
 | ISSUE-0002 | 2026-04-25 20:47 EDT | Migrate redesign provider from Anthropic SDK to Portkey AI Gateway | Resolved | Claude | `server.ts`; `package.json`; `.env.example`; `FLOYD.md`; `SSOT/WebSwap_SSOT.md` | `npm run lint`; `npm test`; `npm run build` |
+| ISSUE-0003 | 2026-04-26 19:43 EDT | Replace fragile model-final JSON redesign with deterministic workspace build/export flow | Verified | Floyd | `server.ts`; `src/blueprint.ts`; `src/siteSummary.ts`; `src/workspaces.ts`; `src/localBuilder.ts`; `src/App.tsx`; `tests/workspace-builder.ts`; `tests/http.ts`; `README.md`; `.env.example` | `npm run lint`; `npm test` (75 smoke + 5 builder + 19 HTTP passing); `npm run build`; `bootstrap.sh --verify` passed 9/9 |
+| ISSUE-0004 | 2026-04-26 20:41 EDT | Add page classification logic so secondary page names match the business type | Verified | Floyd | `src/pageClassifier.ts`; `src/blueprint.ts`; `src/localBuilder.ts`; `src/templateEngine.ts` | `npm run lint`; `npm test` (75 smoke + 5 builder + 19 HTTP passing); `npm run build`; `bootstrap.sh --verify` passed 9/9; manual tests: plumbing→services, restaurant→menu, nightclub→events, retail→products, creative→gallery |
 
 ---
 
@@ -65,6 +67,7 @@ If an issue needs more than a single ledger row, create a companion file in `Iss
 - 2026-04-25T20:30:32-0400 — Initialized issues ledger.
 - 2026-04-25 20:32 EDT — Added ISSUE-0001 for governance bootstrap, port claim, and public-surface cleanup work in progress.
 - 2026-04-25 20:33 EDT — ISSUE-0001 closed after lint, test, build, and governance verification all passed.
+- 2026-04-26 19:43 EDT — Added and verified ISSUE-0003 for deterministic server-side workspace build/export cutover.
 
 ---
 

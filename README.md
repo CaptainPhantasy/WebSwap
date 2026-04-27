@@ -103,7 +103,7 @@ WebSwap answers that in about the time it takes to make a pour-over.
 
 - **Front end:** React 19, Vite 6, Tailwind 4, Motion for the smooth parts, Recharts for the dashboard.
 - **Server:** One Node process. Express 4 with Vite middleware in dev, Express + static bundle in prod.
-- **AI:** Redesign generation via Portkey AI Gateway — OpenAI-compatible client routes to Anthropic Opus 4.7 with structured JSON output and automatic retries.
+- **AI-assisted build:** A small typed blueprint can come from a configurable gateway, but the final redesign, preview, and ZIP are built deterministically on the server.
 - **Scrape:** Cheerio for parsing, node-fetch for fetching, a hand-rolled SSRF guard I trust more than I trust myself.
 - **Secrets:** API credentials live exclusively in `process.env` on the server. Not in any client bundle. Not in `vite.config.ts`. Not in localStorage. If you find them in DevTools I owe you a drink and a bug report.
 

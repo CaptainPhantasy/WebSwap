@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import JSZip from "jszip";
 import {
   ResponsiveContainer,
   BarChart,
@@ -36,13 +35,9 @@ import type {
   Redesign,
   RedesignPage,
   RedesignSection,
-  ScrapedSite,
 } from "./types";
-import {
-  buildExportZip,
-  renderSectionPreview,
-  fontImportUrl,
-} from "./render";
+import type { SiteSummary } from "./siteSummary";
+import { renderSectionPreview, fontImportUrl } from "./render";
 
 type Step =
   | "input"
@@ -52,15 +47,27 @@ type Step =
   | "preview"
   | "dashboard";
 
+interface BuildJobState {
+  status: "queued" | "running" | "complete" | "failed";
+  progress: number;
+  error?: string;
+  exportUrl?: string;
+  previewUrl?: string;
+  redesign?: Redesign;
+}
+
 export default function App() {
   const [step, setStep] = useState<Step>("input");
   const [url, setUrl] = useState("");
-  const [site, setSite] = useState<ScrapedSite | null>(null);
+  const [siteSummary, setSiteSummary] = useState<SiteSummary | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string>(DESIGN_TEMPLATES[0].id);
   const [redesign, setRedesign] = useState<Redesign | null>(null);
   const [activePage, setActivePage] = useState(0);
   const [viewport, setViewport] = useState<"mobile" | "desktop">("desktop");
   const [downloading, setDownloading] = useState(false);
+  const [buildProgress, setBuildProgress] = useState(0);
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const template = useMemo<DesignTemplate>(
@@ -84,7 +91,13 @@ export default function App() {
         throw new Error(j.error || `Scrape failed (${res.status})`);
       }
       const j = await res.json();
-      setSite(j.site as ScrapedSite);
+      if (!j.workspaceId || !j.siteSummary) {
+        throw new Error("Scrape did not create a workspace");
+      }
+      setWorkspaceId(j.workspaceId as string);
+      setSiteSummary(j.siteSummary as SiteSummary);
+      setExportUrl(null);
+      setRedesign(null);
       setStep("choose-template");
     } catch (e: any) {
       setError(e?.message || "Scrape failed");
@@ -93,43 +106,65 @@ export default function App() {
   }
 
   async function handleRedesign() {
-    if (!site) return;
+    if (!workspaceId) return;
     setError(null);
+    setBuildProgress(0);
     setStep("generating");
     try {
-      const res = await fetch("/api/redesign", {
+      const res = await fetch(`/api/workspaces/${workspaceId}/build`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site, templateId }),
+        body: JSON.stringify({ templateId }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `Redesign failed (${res.status})`);
+        throw new Error(j.error || `Build failed (${res.status})`);
       }
-      const j = await res.json();
-      const r = j.redesign as Redesign;
+      const { jobId } = await res.json();
+      if (!jobId) throw new Error("Build did not return a job id");
+      const job = await waitForBuildJob(jobId);
+      if (job.status !== "complete" || !job.redesign) {
+        throw new Error(job.error || "Build did not complete");
+      }
+      const r = job.redesign as Redesign;
       if (!r.pages || r.pages.length === 0) throw new Error("Empty redesign");
       setRedesign(r);
+      setExportUrl(job.exportUrl || `/api/workspaces/${workspaceId}/export.zip`);
       setActivePage(0);
       setStep("preview");
     } catch (e: any) {
-      setError(e?.message || "Redesign failed");
+      setError(e?.message || "Build failed");
       setStep("choose-template");
     }
   }
 
+  async function waitForBuildJob(jobId: string): Promise<BuildJobState> {
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      const res = await fetch(`/api/jobs/${jobId}`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Job polling failed (${res.status})`);
+      }
+      const { job } = (await res.json()) as { job: BuildJobState };
+      setBuildProgress(job.progress || 0);
+      if (job.status === "complete" || job.status === "failed") return job;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    throw new Error("Build timed out");
+  }
+
   async function handleExport() {
-    if (!redesign) return;
+    const href = exportUrl || (workspaceId ? `/api/workspaces/${workspaceId}/export.zip` : null);
+    if (!href || !redesign) return;
     setDownloading(true);
     try {
-      const zip = new JSZip();
-      await buildExportZip(zip, redesign, template);
-      const blob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      link.href = href;
       link.download = `${redesign.brand.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-demo.zip`;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(link.href);
+      link.remove();
     } catch (e: any) {
       setError(e?.message || "Export failed");
     } finally {
@@ -140,8 +175,11 @@ export default function App() {
   function resetAll() {
     setStep("input");
     setUrl("");
-    setSite(null);
+    setSiteSummary(null);
+    setWorkspaceId(null);
     setRedesign(null);
+    setExportUrl(null);
+    setBuildProgress(0);
     setError(null);
   }
 
@@ -159,7 +197,7 @@ export default function App() {
             Web<span className="text-orange-500">Swap</span>
           </button>
           <div className="text-xs text-gray-500 hidden md:block">
-            Powered by Claude Opus 4.7 · 12 designer templates
+            Server-built static exports · 12 designer templates
           </div>
           {step === "preview" && redesign && (
             <div className="flex items-center gap-3">
@@ -207,10 +245,10 @@ export default function App() {
             />
           )}
 
-          {step === "choose-template" && site && (
+          {step === "choose-template" && siteSummary && (
             <ChooseTemplateStep
               key="choose"
-              site={site}
+              site={siteSummary}
               templateId={templateId}
               setTemplateId={setTemplateId}
               onGo={handleRedesign}
@@ -221,18 +259,18 @@ export default function App() {
           {step === "generating" && (
             <LoadingStep
               key="generating"
-              title="Composing the redesign"
-              subtitle="Claude Opus 4.7 is laying out 3 pages in the template's aesthetic…"
+              title="Building the static redesign"
+              subtitle={buildProgress ? `Local builder is creating preview and export files (${buildProgress}%).` : "Creating a validated blueprint, preview, and export ZIP…"}
               icon={<Sparkles className="w-8 h-8 text-amber-400" />}
             />
           )}
 
-          {step === "preview" && redesign && (
+          {step === "preview" && redesign && siteSummary && (
             <PreviewStep
               key="preview"
               redesign={redesign}
               template={template}
-              site={site!}
+              site={siteSummary}
               activePage={activePage}
               setActivePage={setActivePage}
               viewport={viewport}
@@ -241,11 +279,11 @@ export default function App() {
             />
           )}
 
-          {step === "dashboard" && redesign && (
+          {step === "dashboard" && redesign && siteSummary && (
             <DashboardStep
               key="dashboard"
               redesign={redesign}
-              site={site!}
+              site={siteSummary}
               onBack={() => setStep("preview")}
             />
           )}
@@ -254,7 +292,7 @@ export default function App() {
 
       <footer className="border-t border-white/5 py-12">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 opacity-60 text-sm">
-          <p>© 2026 WebSwap. Built with Claude Opus 4.7.</p>
+          <p>© 2026 WebSwap. Built for Floyd-powered static site exports.</p>
           <div className="flex gap-6">
             <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> SSRF-guarded scraper</span>
             <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> Server-side API key</span>
@@ -294,7 +332,8 @@ function InputStep({
         </h1>
         <p className="text-lg text-gray-400 max-w-xl mx-auto">
           Paste a URL. We scrape copy, images, brand, and nav. Then you pick a
-          designer template and Claude produces a 3-page demo site ready to pitch.
+          designer template and WebSwap builds a validated 3-page static demo
+          ready to preview and export.
         </p>
       </div>
       <form
@@ -379,7 +418,7 @@ function ChooseTemplateStep({
   onBack,
 }: {
   key?: React.Key;
-  site: ScrapedSite;
+  site: SiteSummary;
   templateId: string;
   setTemplateId: (id: string) => void;
   onGo: () => void;
@@ -402,7 +441,7 @@ function ChooseTemplateStep({
             <h2 className="text-3xl font-bold mt-3">Choose a designer template</h2>
             <p className="text-gray-400 mt-1">
               Each template is a full aesthetic system — palette, typography, layout DNA.
-              Claude will faithfully apply the one you pick to the scraped content.
+              The local builder applies the one you pick to the scraped content.
             </p>
           </div>
           <button
@@ -500,12 +539,12 @@ function ScrapeSummary({
   site,
   onBack,
 }: {
-  site: ScrapedSite;
+  site: SiteSummary;
   onBack: () => void;
 }) {
-  const heroImages = site.allImages.filter(
-    (i) => i.role === "hero" || i.role === "og",
-  );
+  const heroImages = site.pages
+    .flatMap((page) => page.images)
+    .filter((i) => i.role === "hero" || i.role === "og");
   return (
     <div className="bg-[#101014] border border-white/10 rounded-3xl p-6 md:p-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -526,21 +565,10 @@ function ScrapeSummary({
         </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Pages scraped" value={String(site.pages.length)} />
-        <Stat label="Images pulled" value={String(site.allImages.length)} />
-        <Stat
-          label="Paragraphs"
-          value={String(
-            site.pages.reduce((n, p) => n + p.paragraphs.length, 0),
-          )}
-        />
-        <Stat
-          label="Nav targets"
-          value={String(
-            new Set(site.pages.flatMap((p) => p.navLinks.map((n) => n.label)))
-              .size,
-          )}
-        />
+        <Stat label="Pages scraped" value={String(site.totals.pages)} />
+        <Stat label="Images pulled" value={String(site.totals.images)} />
+        <Stat label="Paragraphs" value={String(site.totals.paragraphs)} />
+        <Stat label="Nav targets" value={String(site.totals.navTargets)} />
       </div>
       {heroImages.length > 0 && (
         <div>
@@ -637,7 +665,7 @@ function PreviewStep({
   key?: React.Key;
   redesign: Redesign;
   template: DesignTemplate;
-  site: ScrapedSite;
+  site: SiteSummary;
   activePage: number;
   setActivePage: (n: number) => void;
   viewport: "mobile" | "desktop";
@@ -871,7 +899,7 @@ function DashboardStep({
 }: {
   key?: React.Key;
   redesign: Redesign;
-  site: ScrapedSite;
+  site: SiteSummary;
   onBack: () => void;
 }) {
   return (
