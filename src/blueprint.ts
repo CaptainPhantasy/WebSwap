@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { DesignTemplate, ScrapedSite, SectionKind } from "./types";
-import { classifySecondaryPage } from "./pageClassifier";
+import { classifyPages, classifySecondaryPage, type PageClassification, type PageLabel } from "./pageClassifier";
 
 export const SECTION_KINDS = [
   "hero",
@@ -46,7 +46,8 @@ export const BuildBlueprintSchema = z
           })
           .strict(),
       )
-      .length(3),
+      .min(3)
+      .max(12),
     contentWarnings: z.array(z.string().max(300)).max(10),
   })
   .strict();
@@ -96,43 +97,58 @@ export function createFallbackBlueprint(
     .filter(Boolean)
     .join(" · ");
 
+  const pagePlan: BuildBlueprint["pagePlan"] = [
+    {
+      slug: "home",
+      title: "Home",
+      sourcePageRefs: [0],
+      sectionPlan: [
+        section("hero", ["page:0:h1:0", "brand:tagline"], "Make the offer immediately clear.", "Lead with the primary service promise and strongest CTA.", "hero"),
+        section("feature-grid", ["page:0:h2", "page:0:paragraphs"], "Turn scraped headings into service cards.", "Summarize the core services in concise, scannable cards."),
+        section("image-split", ["page:0:paragraphs", "images:hero"], "Use real imagery with proof-oriented copy.", "Pair a real photo with the strongest credibility paragraph.", "content"),
+        section("cta", ["page:0:ctas", "brand:phone"], "Create a conversion close.", "Repeat the best source CTA and make the next action obvious."),
+      ],
+    },
+  ];
+
+  const classifications = classifyPages(site);
+  const used = new Set<number>([0, contactIndex]);
+  const sourcePages = classifications
+    .filter((classification) =>
+      classification.index !== 0 &&
+      classification.index !== contactIndex &&
+      classification.label !== "other" &&
+      classification.label !== "contact" &&
+      classification.label !== "booking",
+    )
+    .sort((a, b) => pagePriority(a.label) - pagePriority(b.label) || b.confidence - a.confidence);
+
+  for (const classification of sourcePages) {
+    if (used.has(classification.index) || pagePlan.length >= 11) continue;
+    used.add(classification.index);
+    pagePlan.push(pagePlanForClassification(classification));
+  }
+
+  if (!used.has(secondary.index) && pagePlan.length < 11) {
+    pagePlan.push(pagePlanForClassification({ index: secondary.index, page: site.pages[secondary.index], label: "services", confidence: 0.7 }));
+    used.add(secondary.index);
+  }
+
+  pagePlan.push({
+    slug: "contact",
+    title: "Contact",
+    sourcePageRefs: [contactIndex],
+    sectionPlan: [
+      section("hero", [`page:${contactIndex}:h1:0`, "brand:phone"], "Make contact feel low-friction.", "Lead with scheduling, response, or next-step language from the source.", "hero"),
+      section("contact", ["brand:emails", "brand:phones", `page:${contactIndex}:paragraphs`], "Expose contact paths clearly.", "Use source phone/email details and a static-export-safe form."),
+      section("faq", [`page:${contactIndex}:paragraphs`, "page:0:ctas"], "Remove conversion friction.", "Answer what happens after a visitor reaches out."),
+      section("cta", ["brand:phone", "page:0:ctas"], "End with one decisive action.", "Repeat the strongest contact CTA."),
+    ],
+  });
+
   return {
     brandVoice,
-    pagePlan: [
-      {
-        slug: "home",
-        title: "Home",
-        sourcePageRefs: [0],
-        sectionPlan: [
-          section("hero", ["page:0:h1:0", "brand:tagline"], "Make the offer immediately clear.", "Lead with the primary service promise and strongest CTA.", "hero"),
-          section("feature-grid", ["page:0:h2", "page:0:paragraphs"], "Turn scraped headings into service cards.", "Summarize the core services in concise, scannable cards."),
-          section("image-split", ["page:0:paragraphs", "images:hero"], "Use real imagery with proof-oriented copy.", "Pair a real photo with the strongest credibility paragraph.", "content"),
-          section("cta", ["page:0:ctas", "brand:phone"], "Create a conversion close.", "Repeat the best source CTA and make the next action obvious."),
-        ],
-      },
-      {
-        slug: secondary.slug,
-        title: secondary.title,
-        sourcePageRefs: [secondary.index],
-        sectionPlan: [
-          section("hero", [`page:${secondary.index}:h1:0`, `page:${secondary.index}:metaDescription`], "Introduce the detail page.", "Use source page language to frame this page's purpose.", "hero"),
-          section("feature-grid", [`page:${secondary.index}:h2`, `page:${secondary.index}:paragraphs`], "Explain the offering.", "Convert source headings and body copy into practical proof points."),
-          section("quote", [`page:${secondary.index}:paragraphs`], "Add a trust-building proof moment.", "Use source sentiment without inventing a named testimonial."),
-          section("faq", [`page:${secondary.index}:paragraphs`, "brand:emails", "brand:phones"], "Answer buyer questions.", "Create concise FAQs from source facts only."),
-        ],
-      },
-      {
-        slug: "contact",
-        title: "Contact",
-        sourcePageRefs: [contactIndex],
-        sectionPlan: [
-          section("hero", [`page:${contactIndex}:h1:0`, "brand:phone"], "Make contact feel low-friction.", "Lead with scheduling, response, or next-step language from the source.", "hero"),
-          section("contact", ["brand:emails", "brand:phones", `page:${contactIndex}:paragraphs`], "Expose contact paths clearly.", "Use source phone/email details and a demo-safe form."),
-          section("faq", [`page:${contactIndex}:paragraphs`, "page:0:ctas"], "Remove conversion friction.", "Answer what happens after a visitor reaches out."),
-          section("cta", ["brand:phone", "page:0:ctas"], "End with one decisive action.", "Repeat the strongest contact CTA."),
-        ],
-      },
-    ],
+    pagePlan: pagePlan.slice(0, 12),
     contentWarnings: [],
   };
 }
@@ -145,6 +161,59 @@ function section(
   imageRole?: "hero" | "content" | "logo",
 ): BuildBlueprint["pagePlan"][number]["sectionPlan"][number] {
   return { kind, sourceRefs, intent, copyBrief, ...(imageRole ? { imageRole } : {}) };
+}
+
+function pagePlanForClassification(classification: PageClassification): BuildBlueprint["pagePlan"][number] {
+  const { index, page, label } = classification;
+  const title = titleForLabel(label, page.title);
+  const slug = slugForLabel(label, page.path);
+  const middleKind: SectionKind = label === "gallery-portfolio" ? "gallery" : label === "team" ? "team" : label === "pricing" ? "pricing" : "feature-grid";
+  const closeKind: SectionKind = label === "faq" ? "faq" : label === "contact" || label === "booking" ? "contact" : "cta";
+
+  return {
+    slug,
+    title,
+    sourcePageRefs: [index],
+    sectionPlan: [
+      section("hero", [`page:${index}:h1:0`, `page:${index}:metaDescription`], `Introduce ${title}.`, "Use source page language to frame this page's purpose.", "hero"),
+      section(middleKind, [`page:${index}:h2`, `page:${index}:paragraphs`, `page:${index}:images`], `Structure ${title} content.`, "Convert source headings, images, and body copy into practical proof points.", "content"),
+      section(label === "events" || label === "menu" ? "image-split" : "quote", [`page:${index}:paragraphs`], "Add proof and texture from source content.", "Use source material without inventing named testimonials.", "content"),
+      section(closeKind, [`page:${index}:ctas`, "brand:emails", "brand:phones"], `Convert from ${title}.`, "Repeat the strongest source-backed next action."),
+    ],
+  };
+}
+
+function pagePriority(label: PageLabel): number {
+  const order: PageLabel[] = ["services", "products", "menu", "events", "gallery-portfolio", "pricing", "team", "about", "locations", "booking", "faq", "blog-news", "contact", "other", "home"];
+  const idx = order.indexOf(label);
+  return idx === -1 ? 99 : idx;
+}
+
+function titleForLabel(label: PageLabel, fallback: string): string {
+  const titles: Record<PageLabel, string> = {
+    home: "Home",
+    about: "About",
+    services: "Services",
+    products: "Products",
+    menu: "Menu",
+    events: "Events",
+    "gallery-portfolio": "Gallery",
+    team: "Team",
+    contact: "Contact",
+    faq: "FAQ",
+    pricing: "Pricing",
+    "blog-news": "News",
+    locations: "Locations",
+    booking: "Booking",
+    other: fallback || "Page",
+  };
+  return titles[label] || fallback || "Page";
+}
+
+function slugForLabel(label: PageLabel, path: string): string {
+  const slug = label === "gallery-portfolio" ? "gallery" : label === "blog-news" ? "news" : label;
+  if (slug !== "other") return slug;
+  return path.replace(/^\/+/, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "page";
 }
 
 function chooseSecondaryPage(site: ScrapedSite) {

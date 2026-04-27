@@ -1,6 +1,13 @@
 {
   "name": "WebSwap",
-  "description": "Drop in a URL. WebSwap ingests the content, keeps the soul, and serves it back in a whole new look.",
+  "description": "Client site conversion engine that scrapes an existing public website, recommends client-specific templates, and exports polished multi-page static sites with design-system guidance.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["Website Ingest", "AI Restyle", "3-Page Demo Export", "Responsive Checker"]
+  "majorCapabilities": [
+    "Guarded Website Ingest",
+    "Business and Page Classification",
+    "Template Recommendation",
+    "Multi-Page Static Site Export",
+    "Design System Handoff",
+    "Responsive Preview"
+  ]
 }

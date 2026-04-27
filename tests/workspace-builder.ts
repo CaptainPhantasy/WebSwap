@@ -14,6 +14,7 @@ import {
   loadWorkspaceSite,
   resolveWorkspace,
 } from "../src/workspaces.ts";
+import { rankTemplatesForSite } from "../src/templateRecommendations.ts";
 
 interface TestResult {
   name: string;
@@ -129,6 +130,63 @@ const SITE: ScrapedSite = {
   ],
 };
 
+const RICH_SITE: ScrapedSite = {
+  ...SITE,
+  rootUrl: "https://example-restaurant.test",
+  origin: "https://example-restaurant.test",
+  brand: {
+    ...SITE.brand,
+    name: "Example Supper Club",
+    tagline: "Seasonal dining, private events, and weekend live music.",
+    socials: [{ platform: "Instagram", url: "https://instagram.com/examplesupper" }],
+  },
+  pages: [
+    ...SITE.pages,
+    {
+      url: "https://example-restaurant.test/menu",
+      path: "/menu",
+      title: "Menu",
+      metaDescription: "Seasonal dinner menu, cocktails, and private dining.",
+      h1: ["Dinner menu"],
+      h2: ["Cocktails", "Private dining", "Weekend specials"],
+      navLinks: [],
+      ctas: ["Reserve a table"],
+      paragraphs: ["Our menu changes with local farms, seasonal produce, and a focused cocktail program for dinner and late-night guests."],
+      images: [{ src: "https://example-restaurant.test/menu.jpg", alt: "Plated dinner", role: "content" }],
+    },
+    {
+      url: "https://example-restaurant.test/events",
+      path: "/events",
+      title: "Events",
+      metaDescription: "Live music, chef dinners, and private events.",
+      h1: ["Events and private dining"],
+      h2: ["Live music", "Chef dinners", "Private events"],
+      navLinks: [],
+      ctas: ["Plan an event"],
+      paragraphs: ["The dining room hosts live music, chef dinners, celebrations, and private events with custom menus."],
+      images: [{ src: "https://example-restaurant.test/events.jpg", alt: "Private event", role: "content" }],
+    },
+    {
+      url: "https://example-restaurant.test/gallery",
+      path: "/gallery",
+      title: "Gallery",
+      metaDescription: "Food, cocktails, and dining room gallery.",
+      h1: ["Gallery"],
+      h2: ["Dining room", "Cocktails", "Seasonal plates"],
+      navLinks: [],
+      ctas: ["View the menu"],
+      paragraphs: ["Browse the room, menu details, cocktails, and atmosphere before planning a visit."],
+      images: [{ src: "https://example-restaurant.test/gallery.jpg", alt: "Dining room", role: "content" }],
+    },
+  ],
+  allImages: [
+    ...SITE.allImages,
+    { src: "https://example-restaurant.test/menu.jpg", alt: "Plated dinner", role: "content" },
+    { src: "https://example-restaurant.test/events.jpg", alt: "Private event", role: "content" },
+    { src: "https://example-restaurant.test/gallery.jpg", alt: "Dining room", role: "content" },
+  ],
+};
+
 (async function main() {
   const rootDir = await mkdtemp(path.join(tmpdir(), "webswap-workspaces-"));
   const template = DESIGN_TEMPLATES[0];
@@ -148,6 +206,13 @@ const SITE: ScrapedSite = {
       assert(parsed.warnings.some((w) => w.includes("Invalid blueprint")), parsed.warnings.join(" | "));
     });
 
+    await test("template recommendations return exactly three evidence-backed options", () => {
+      const recommendations = rankTemplatesForSite(RICH_SITE, DESIGN_TEMPLATES);
+      assert(recommendations.length === 3, `recommendations=${recommendations.length}`);
+      assert(recommendations.every((r) => r.reasons.length > 0), "missing recommendation reasons");
+      assert(new Set(recommendations.map((r) => r.templateId)).size === 3, "duplicate recommendations");
+    });
+
     await test("local builder returns complete redesign pages", () => {
       const blueprint = createFallbackBlueprint(SITE, template);
       const redesign = buildLocalRedesign(SITE, template, blueprint);
@@ -157,6 +222,24 @@ const SITE: ScrapedSite = {
         assert(Array.isArray(page.sections) && page.sections.length >= 3, `${page.slug} sections`);
         assert(page.sections.every((s) => typeof s.kind === "string"), `${page.slug} bad section kind`);
       }
+    });
+
+    await test("fallback blueprint expands beyond three pages for rich source inventory", () => {
+      const blueprint = createFallbackBlueprint(RICH_SITE, template);
+      assert(blueprint.pagePlan.length > 3, `pages=${blueprint.pagePlan.length}`);
+      assert(blueprint.pagePlan.length <= 12, `pages=${blueprint.pagePlan.length}`);
+      assert(blueprint.pagePlan.some((p) => p.slug === "menu"), blueprint.pagePlan.map((p) => p.slug).join(","));
+      assert(blueprint.pagePlan.some((p) => p.slug === "events"), blueprint.pagePlan.map((p) => p.slug).join(","));
+    });
+
+    await test("local builder computes truthful metrics from scrape depth", () => {
+      const shallow = buildLocalRedesign(SITE, template, createFallbackBlueprint(SITE, template));
+      const rich = buildLocalRedesign(RICH_SITE, template, createFallbackBlueprint(RICH_SITE, template));
+      assert(rich.pages.length > shallow.pages.length, `${rich.pages.length} <= ${shallow.pages.length}`);
+      assert(rich.metrics.designScore !== "92/100", "design score remained hardcoded");
+      assert(rich.metrics.contentClarity !== "A-", "content clarity remained hardcoded");
+      assert(rich.chartData.some((row) => row.section === "Source Pages" && row.weight > shallow.pages.length), "missing source page metric");
+      assert(rich.suggestions.some((s) => s.includes("Recommended templates")), rich.suggestions.join(" | "));
     });
 
     await test("local builder output is exportable by existing ZIP renderer", async () => {

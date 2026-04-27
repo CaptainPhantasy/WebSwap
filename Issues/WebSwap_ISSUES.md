@@ -1,6 +1,6 @@
 # WebSwap Issues Ledger
 **Created:** 2026-04-25T20:30:32-0400
-**Governance:** .supercache/ v1.4.1
+**Governance:** .supercache/ v1.5.0
 
 > This is the living help-desk and issue tracker for **WebSwap**. Every issue row below must stay evidence-backed and append-only.
 

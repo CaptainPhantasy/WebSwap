@@ -1,0 +1,188 @@
+# WebSwap Latent Feature Activation Plan
+
+**Created:** 2026-04-27
+**Purpose:** Map the recovered latent features to the concrete gaps they can close when activated, wired up, or given user-facing entry points.
+**Source inventory:** `Issues/WebSwap_GAPS_AND_LATENT_FEATURES.md`
+
+## Executive Summary
+
+WebSwap already contains several partially built capabilities. The highest-leverage path is not to invent new systems, but to wire the existing ones into the export/build flow in the right order.
+
+The activation sequence should be:
+
+1. **Export design-system activation:** make export HTML and generated CSS speak the same structure, then let template CSS actually vary by template.
+2. **Recommendation activation:** bridge site-industry classification to template ranking so users start from relevant templates.
+3. **Content intelligence activation:** use existing page labels, CTA extraction, social proof, image roles, and live metrics to make generated pages more truthful.
+4. **Scope decision activation:** decide which overbuilt capabilities are product ambition and which are cruft before deleting or expanding them.
+
+## Gap-to-Latent-Feature Coverage Matrix
+
+| Gap | Gap Summary | Latent Features That Can Fill It | Activation Type | Expected Result |
+|---|---|---|---|---|
+| G3 | Export HTML/CSS selector mismatch | L1, L4, L5, L11 | Wire existing CSS system to export HTML | Exported sites render with intended styling instead of partial/mismatched styles. |
+| G1 | All templates generate identical CSS | L1 plus template `layoutDNA` from G2 | Activate per-template CSS branches | Template choice changes layout, rhythm, surfaces, and CTA treatment. |
+| G4 | No industry-to-template auto-recommendation | L3, L2 | Add recommendation entry point | Template chooser can pre-rank templates based on detected site industry and page mix. |
+| G2 | `layoutDNA` is unused | L1, L4, L5, L6 | Use metadata as design tokens or layout modes | Template metadata stops being descriptive-only and starts shaping output. |
+| G5 | Crawl misses in-content links | L2, L8 | Feed richer page classification back into crawl/build priorities | More relevant pages can be discovered and used when source sites expose content outside nav. |
+| G6 | Exported images depend on remote originals | L6, L9 | Add image asset pipeline entry point | Export can pick, cache, and reference durable local image assets by role. |
+| G7 | Preview/export duplicate section rendering logic | L4, L5, L11 | Consolidate section rendering after CSS alignment | New section kinds and navigation behavior require one implementation path, not two. |
+| O6 | Metrics dashboard is hardcoded | L7 | Compute metrics from scraped/build data | User-facing scores become truthful instead of placeholder values. |
+
+## Activation Lane 1: Export Design System
+
+### Fills
+
+- G3: export HTML/CSS selector mismatch
+- G1: identical template CSS
+- G2: unused design metadata
+- G7: duplicate render paths, once aligned
+
+### Latent Features Used
+
+| Latent Feature | Current Evidence | Activation Entry Point |
+|---|---|---|
+| L1: per-template CSS switch point | `generateTemplateCSS(template)` currently delegates directly to `basicCSS(template)` in `src/templateEngine.ts:7-9`. | Replace direct delegation with a template-aware CSS builder. |
+| L4: review/testimonial CSS | `.reviews`, `.reviews-head`, `.reviews-grid`, and `.review` styles already exist in `src/templateEngine.ts:81-93`. | Add a `reviews`/testimonial section model or map existing quote/testimonial content into this structure. |
+| L5: marquee animation CSS | `.marquee` and `@keyframes marqueeScroll` already exist in `src/templateEngine.ts:145-151`. | Add an optional marquee section between hero and content when source brand phrases or services are strong enough. |
+| L11: nav link rewriting | `pageHTML()` already rewrites nav links through `linkToPage()` in `src/render.tsx:554-560`. | Extend the export shell to apply the same canonical structure expected by generated CSS. |
+
+### Required Cutover
+
+1. Pick one canonical export DOM structure.
+2. Update `sectionHTML()` and `pageHTML()` to emit that structure.
+3. Update `basicCSS()`/template CSS to style that exact structure.
+4. Remove or rewrite stale selectors that no exported HTML can hit.
+5. Only after alignment, introduce per-template CSS branches.
+
+### Avoid
+
+- Do not add compatibility selectors for both old and new structures.
+- Do not keep flat `.hero` markup while styling `.hero .wrap` unless `.wrap` is actually emitted.
+- Do not add new section kinds until the CSS/HTML contract is coherent.
+
+## Activation Lane 2: Template Recommendation and Page Routing
+
+### Fills
+
+- G4: no auto-recommendation
+- L2/L8 underuse: page classification returns richer labels than builder uses
+- Part of G5: better page prioritization when more candidate pages are discovered
+
+### Latent Features Used
+
+| Latent Feature | Current Evidence | Activation Entry Point |
+|---|---|---|
+| L3: industry-to-template auto-matching | `classifySiteIndustry(site)` returns category, confidence, and evidence in `src/pageClassifier.ts:43-80`; templates expose `bestFor[]` in `src/templates.ts:25-28`, `49-51`, `73-75`, `97-99`, etc. | Add a `rankTemplatesForSite(site, templates)` helper that maps business category and evidence to template scores. |
+| L2: full page classification | `classifyPages(site)` returns labels and confidence in `src/pageClassifier.ts:85-90`. | Feed classifications into local build page selection and into template recommendation confidence copy. |
+| L8: 16 page labels | `PageLabel` includes home, about, services, products, menu, events, gallery, team, contact, FAQ, pricing, blog/news, locations, booking, and other in `src/pageClassifier.ts:24-39`. | Expand secondary page selection only after the product scope decision confirms richer exports are desired. |
+
+### Recommended Entry Point
+
+Create a small recommendation layer near the existing classifier/builder boundary:
+
+```ts
+rankTemplatesForSite(site, templates) -> Array<{
+  templateId: string;
+  score: number;
+  reasons: string[];
+}>;
+```
+
+The first implementation can be deterministic:
+
+- Map `BusinessCategory` to preferred `bestFor[]` terms.
+- Boost templates whose `bestFor[]` or `mood[]` aligns with category evidence.
+- Boost templates whose layout style fits available media/content density.
+- Return top 3 recommendations with plain-English reasons.
+
+### User-Facing Entry Point
+
+- In the template chooser, show “Recommended for this site” above the full catalog.
+- Keep manual selection available.
+- Display reasons from classifier evidence, not generic marketing text.
+
+## Activation Lane 3: Truthful Content and Metrics
+
+### Fills
+
+- L7/O6: hardcoded metrics
+- G6: remote image fragility, when paired with image asset handling
+- L10/L12 underuse: social proof and CTA extraction already exist but do not strongly shape output
+
+### Latent Features Used
+
+| Latent Feature | Current Evidence | Activation Entry Point |
+|---|---|---|
+| L7: live metrics | `src/localBuilder.ts:103-115` currently returns hardcoded metrics and chart data. | Compute metrics from `ScrapedSite`, selected pages, image count, CTA count, page classifications, and export completeness. |
+| L6: image role intelligence hook | Recovered inventory points to `src/localBuilder.ts:420-422` as the image role selection hook. | Rank images by role, size, source page, and section need before rendering/exporting. |
+| L9: blueprint `imageRole` | Recovered inventory points to `src/blueprint.ts:40`. | If model blueprints remain in scope, let the blueprint request roles while local builder remains authoritative. |
+| L10: social media proof extraction | `src/scraper.ts:238-260` extracts known social platform links from nav links. | Use social presence as trust/proof content or footer links when present. |
+| L12: CTA extraction | `src/scraper.ts:144-148` extracts button/CTA text. | Rank CTAs and use them for hero/CTA sections instead of generic defaults. |
+
+### Metrics That Can Be Computed Now
+
+| Metric | Inputs | Replaces |
+|---|---|---|
+| Content coverage | count of classified pages, paragraphs, headings, CTAs | hardcoded `contentClarity: "A-"` |
+| Visual asset strength | image count, usable image dimensions/roles, hero image availability | generic visual quality claims |
+| Conversion readiness | presence of phone/email/contact/CTA/booking links | hardcoded conversion chart weight |
+| Export completeness | number of generated pages, missing-section fallbacks, nav link resolution | hardcoded `designScore: "92/100"` |
+| Accessibility readiness | heading presence, alt opportunities, form labels, contrast token availability | hardcoded `accessibility: "AA-ready"` |
+
+### Guardrail
+
+If a metric cannot be computed from actual source/build data, remove it from the UI until it can. Placeholder metrics are worse than missing metrics because they create false confidence.
+
+## Activation Lane 4: Expansion Features That Need Scope Approval
+
+These features can fill gaps, but they also push WebSwap beyond a simple three-page demo. Do not activate them blindly.
+
+| Latent/Opposite Feature | Fills | Scope Question |
+|---|---|---|
+| L8: use all page labels for five-plus-page exports | G5, richer page routing | Should WebSwap remain a three-page redesign demo or become a fuller static-site generator? |
+| O1: 12-section generator | richer pages and marketing variety | Are all 12 sections product surface, or should the app constrain itself to hero/content/proof/CTA? |
+| O2: 570-line classifier | L2/L3/L8 | Is classifier depth a competitive strength or accidental complexity? |
+| O3: model-assisted blueprint pipeline | L9 and richer planning | Is model planning core, or should deterministic local generation be the default product? |
+| O4: large operator SPA | recommendation and metrics UI | Is the dashboard an operator tool or should the user path be simpler? |
+
+## Recommended Implementation Order
+
+| Order | Work Item | Latent Features Activated | Gaps Filled | Verification Target |
+|---|---|---|---|---|
+| 1 | Align export DOM and CSS selectors | L1, L11 | G3 | Export ZIP contains HTML selectors that match `styles.css`; smoke test asserts key selectors exist. |
+| 2 | Add first-pass per-template CSS variants | L1 + `layoutDNA` | G1, part of G2 | Snapshot or string tests prove at least 3 templates emit materially different CSS. |
+| 3 | Add template recommendation layer | L3, L2 | G4 | Unit tests: hospitality ranks warm/dark/event-friendly templates; service trade ranks trust/service templates. |
+| 4 | Replace hardcoded metrics with computed metrics | L7, L10, L12 | O6 | Tests show metrics change when scrape content changes. |
+| 5 | Use richer page labels in builder | L2, L8 | G5 partial | Tests: restaurant -> menu, nightclub -> events, retail -> products, creative -> gallery remain covered and drive page selection. |
+| 6 | Add image role/asset pipeline | L6, L9 | G6 | Export references local cached image assets or explicit durable fallbacks. |
+| 7 | Consolidate preview/export section rendering | L4, L5, L11 | G7 | Adding a section touches one registry/renderer path, not two switches. |
+
+## Entry Point Backlog
+
+| Entry Point | Create/Modify | Purpose |
+|---|---|---|
+| `rankTemplatesForSite()` | New helper near `pageClassifier` or local builder boundary | Turns industry/page evidence into template recommendations. |
+| `buildTemplateCSS()` or expanded `generateTemplateCSS()` | `src/templateEngine.ts` | Converts template metadata into actual style differences. |
+| `buildExportShell()` / section wrapper helpers | `src/render.tsx` or extracted renderer module | Makes page/header/footer/section DOM match CSS contract. |
+| `computeBuildMetrics()` | `src/localBuilder.ts` | Replaces hardcoded metrics and chart data. |
+| `selectImageForRole()` | Existing local-builder image hook | Chooses section images intentionally. |
+| `extractProofSignals()` | Scraper/local-builder boundary | Converts socials, CTAs, contacts, testimonials, and stats into usable proof content. |
+| `sectionRendererRegistry` | Future refactor after G3 | Removes duplicated `renderSectionPreview()` and `sectionHTML()` switch logic. |
+
+## Definition of Done for Activation Work
+
+A latent feature is not “activated” until all of the following are true:
+
+1. It has a concrete code entry point.
+2. It is called from the real build/export/user flow.
+3. Its output is visible in preview, export, recommendation UI, or metrics.
+4. It has at least one test proving the gap it closes would regress if removed.
+5. Stale duplicate paths are removed or updated in the same change.
+
+## Non-Goals
+
+- Do not add a second CSS system.
+- Do not create compatibility wrappers for old export markup.
+- Do not add more hardcoded dashboard values.
+- Do not delete O1-O7 capabilities without a product-scope decision.
+- Do not broaden crawling until the export and template-selection core is reliable.

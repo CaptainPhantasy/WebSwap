@@ -1,0 +1,90 @@
+# WebSwap Gaps and Latent Features
+
+**Created:** 2026-04-27
+**Purpose:** Preserve the gap and latent-feature inventory recovered from session logs so the work queue is not lost across compaction or session handoffs.
+
+## Source Evidence
+
+Primary source:
+
+- `/Users/douglastalley/.omp/agent/sessions/--Volumes-SanDisk1Tb-WebSwap--/2026-04-27T00-58-56-957Z_019dcc72-503d-7000-bd1e-9236057ac377/handoff-2026-04-27T00-58-56-961Z.md`
+  - Gap analysis: lines 77-90
+  - Opposite gaps: lines 91-101
+  - Latent features: lines 103-118
+  - Prioritized next steps: lines 143-155
+
+Additional context:
+
+- Repo-local `.floyd/agent_log.jsonl` exists but was empty when checked on 2026-04-27.
+- `Issues/WebSwap_ISSUES.md` currently records completed/verified historical issues through `ISSUE-0004`; this file is the recovered detail inventory, not a replacement for the issue ledger.
+
+## Immediate Priority Queue
+
+| Priority | ID | Work Item | Why It Matters | Evidence |
+|---|---|---|---|---|
+| 1 | G3 | Fix export HTML/CSS selector mismatch | Exported static sites are the core deliverable; mismatched selectors make exports visually broken or under-styled. | Source log lines 83 and 145 |
+| 2 | G1 / L1 | Un-stub per-template CSS generation | Template selection should produce visually distinct exports; currently all 12 templates use the same stylesheet. | Source log lines 84, 107, and 147 |
+| 3 | G4 / L3 | Add industry-to-template recommendations | `classifySiteIndustry()` and template `bestFor[]` already exist but are not bridged; users manually browse all templates. | Source log lines 85, 109, and 149 |
+| 4 | L7 | Compute live metrics from scraped data | Dashboard/export metrics are hardcoded instead of reflecting actual scrape quality. | Source log lines 113 and 151 |
+| 5 | L2 | Use full page classification output | `classifyPages()` returns rich labels but builder uses only a small subset; secondary pages can be better matched. | Source log lines 108 and 150 |
+| 6 | L4 / G2 | Add reviews section or layoutDNA-driven rendering | Existing CSS and template design specs are unused or underused; this can improve fidelity once blocking export issues are fixed. | Source log lines 86, 110, and 152-153 |
+| 7 | O1-O7 | Decide whether excess capabilities are strategic or cruft | The app does substantially more than the stated purpose; scope should be formalized or trimmed. | Source log lines 91-101 and 155 |
+
+## Gaps: Stated Goals Not Met
+
+| ID | Severity | Problem | Exact Location | Recovery Note |
+|---|---|---|---|---|
+| G3 | High | Export HTML/CSS selector mismatch. `sectionHTML()` emits flat structures such as `<section class="hero">`, `<h1>`, and `<div class="kicker">`, while CSS expects nested selectors such as `.hero .wrap`, `.hero-figure`, `.masthead .wrap nav`, `.wordmark`, `.cta-banner .wrap`, and `.colophon .wrap`. | `src/render.tsx:432-438` vs `src/templateEngine.ts:56-145` | Fix first. Either make export HTML match the CSS structure or simplify CSS to match exported HTML. |
+| G1 | High | `generateTemplateCSS()` always calls `basicCSS()`, so all 12 templates produce identical visual exports. | `src/templateEngine.ts:7-9` | Pair with L1. Start with per-template CSS variables and small layout differences before attempting a full CSS pipeline. |
+| G4 | Medium | No template auto-recommendation. Site industry classification exists and templates declare `bestFor[]`, but there is no bridge between them. | `src/pageClassifier.ts:47-81`; `src/templates.ts` `bestFor[]` fields | Pair with L3. Rank templates and surface top recommendations in the template chooser. |
+| G2 | Medium | Template `layoutDNA` design specs are not used by builder or renderer. | `src/templates.ts`; `src/localBuilder.ts`; `src/render.tsx` | Defer until G3/G1 are fixed; then decide whether layoutDNA should drive variables, layout modes, or section ordering. |
+| G5 | Low | Crawl queue only seeds from priority paths and nav links; in-content links such as “Read more” or “View project” are not crawled. | `src/scraper.ts:301-302`, `src/scraper.ts:328-338` | Consider after core export flow is reliable. |
+| G6 | Low | Exported sites reference remote source images directly; exports break if original images go offline. | `src/render.tsx:459` | Implement image download/cache/resize only if static exports need offline durability. |
+| G7 | Low | `renderSectionPreview()` and `sectionHTML()` duplicate the same 12-section switch. Adding a section requires editing both paths. | `src/render.tsx:47-416`; `src/render.tsx:429-530+` | Refactor after CSS/HTML alignment to avoid unifying broken behavior. |
+
+## Opposite Gaps: Capabilities Beyond the Stated Purpose
+
+These are not necessarily bad. They are scope mismatches: either formalize them into the product spec or trim them.
+
+| ID | Capability | Where | Decision Needed |
+|---|---|---|---|
+| O1 | Full 12-section site generator despite the stated “3-page demo” purpose. | `src/types.ts:66-78`; `src/render.tsx` | Decide whether WebSwap is a three-page demo tool or a fuller static-site generator. |
+| O2 | 570-line page classification engine. | `src/pageClassifier.ts` | Keep if richer multi-page outputs are part of the real ambition; otherwise simplify. |
+| O3 | Model-assisted blueprint pipeline with gateway routing, retry, and Zod validation. | `server.ts:62-157` | Keep if model-assisted planning is core; otherwise local deterministic generation may be enough. |
+| O4 | Large React SPA with animations, charts, and icons. | `src/App.tsx` | Keep if operator dashboard matters; trim if the app should be a simpler funnel. |
+| O5 | Workspace persistence with path guards. | `src/workspaces.ts` | Likely useful because server-side exports need persistence. |
+| O6 | Metrics dashboard with hardcoded values. | `src/App.tsx`; `src/localBuilder.ts:103-115` | Pair with L7 or remove dashboard metrics until they are truthful. |
+| O7 | 182-line production CSS system. | `src/templateEngine.ts:15-182` | Valuable only after G3/G1 make CSS align with export HTML and template choice. |
+
+## Latent Features: Already Present but Untapped
+
+| ID | Feature | Where | What It Would Enable | Suggested Disposition |
+|---|---|---|---|---|
+| L1 | Per-template CSS generation switch point. | `src/templateEngine.ts:7-9` | Visually distinct exports per selected template. | Implement with G1. |
+| L2 | Full multi-page classification via `classifyPages()`. | `src/pageClassifier.ts:85-91` | Richer secondary pages from best-matched source pages and labels. | Implement after G3/G1/L3. |
+| L3 | Industry-to-template auto-matching. | `src/pageClassifier.ts:47-81`; `src/templates.ts` `bestFor[]` | Templates ranked by relevance to detected industry. | Implement with G4. |
+| L4 | Review/testimonial CSS already defined. | `src/templateEngine.ts:82-93` | A review/testimonial section kind. | Defer until section model is unified. |
+| L5 | Marquee/animation CSS. | `src/templateEngine.ts:146-151` | Scrolling text banner between sections. | Optional polish after core correctness. |
+| L6 | Image role intelligence hook. | `src/localBuilder.ts:420-422` | Better image selection by size, role, and precedence. | Implement when improving visual quality. |
+| L7 | Live metrics from scraped data. | `src/localBuilder.ts:103-115` | Dynamic quality metrics from actual scrape content. | Implement high-priority because current metrics are misleading. |
+| L8 | 16 page labels, only 3 used. | `src/pageClassifier.ts:24-39`; `src/pageClassifier.ts:451-472` | Five-plus-page exports when source sites are rich. | Defer pending product scope decision. |
+| L9 | `imageRole` exists in model blueprints. | `src/blueprint.ts:40` | Model can specify which image role each section needs. | Wire into prompts/builder if model planning remains core. |
+| L10 | Social media proof extraction. | `src/scraper.ts:238-260` | Social proof sections in exported pages. | Optional marketing-quality upgrade. |
+| L11 | Nav link rewriting. | `src/render.tsx:639-640` | Local breadcrumbs and safer internal navigation in exports. | Extend when improving export navigation. |
+| L12 | Full CTA extraction. | `src/scraper.ts:144-148` | Primary and secondary CTAs per page, ranked by context. | Implement with content-quality pass. |
+
+## Implementation Notes for Next Session
+
+1. **Do not start with a broad redesign.** Start with G3 because it blocks the exported static-site deliverable.
+2. **Do not treat G1 as cosmetic.** Template selection is user-facing; if all exports look identical, the template catalog is misleading.
+3. **Use full cutover, not compatibility shims.** If CSS and HTML structures are unified, delete or update the stale structure in the same change.
+4. **Keep metrics truthful.** Hardcoded metrics should either become computed from scrape data or be removed from user-facing surfaces.
+5. **Do not autonomously prune O1-O7.** Surface the scope decision before deleting capabilities that may represent the real product ambition.
+
+## Verification Checklist for This Inventory
+
+- [x] Confirm this file exists in `Issues/`.
+- [x] Confirm all G1-G7 entries from source log are preserved.
+- [x] Confirm all O1-O7 entries from source log are preserved.
+- [x] Confirm all L1-L12 entries from source log are preserved.
+- [x] Confirm priority queue includes G3, G1/L1, G4/L3, and L7.

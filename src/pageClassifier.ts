@@ -117,6 +117,11 @@ function classifySinglePage(
     return { label: "about", confidence: 0.9 };
   }
 
+  if (/\/menu|\/food|\/drinks|\/dining|\/cocktails/.test(path)) return { label: "menu", confidence: 0.88 };
+  if (/\/events|\/private-events|\/party|\/reservation/.test(path)) return { label: "events", confidence: 0.84 };
+  if (/\/gallery|\/photos|\/portfolio|\/work|\/projects|\/tour/.test(path)) return { label: "gallery-portfolio", confidence: 0.82 };
+  if (/\/pricing|\/plans|\/rates/.test(path)) return { label: "pricing", confidence: 0.84 };
+
   // Industry-specific path matching
   switch (industry) {
     case "hospitality": {

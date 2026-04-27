@@ -6,6 +6,7 @@ import type {
   RedesignPage,
   RedesignSection,
 } from "./types";
+import { generateTemplateCSS } from "./templateEngine";
 
 export function fontImportUrl(heading: string, body: string): string {
   const fam = (name: string) => {
@@ -426,127 +427,120 @@ export function esc(s: string | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-export function sectionHTML(s: RedesignSection, t: DesignTemplate): string {
-  const p = t.palette;
+export function sectionHTML(s: RedesignSection, _t: DesignTemplate): string {
+  const sectionHead = (eyebrow: string, heading?: string, subheading?: string) => `
+  <div class="section-head">
+    <div class="eyebrow">${esc(eyebrow)}</div>
+    <div>
+      ${heading ? `<h2>${esc(heading)}</h2>` : ""}
+      ${subheading ? `<p class="lede">${esc(subheading)}</p>` : ""}
+    </div>
+  </div>`;
+
   switch (s.kind) {
     case "hero":
       return `<section class="hero">
-  ${s.subheading ? `<div class="kicker">${esc(s.subheading)}</div>` : ""}
-  <h1>${esc(s.heading)}</h1>
-  ${s.body ? `<p class="lead">${esc(s.body)}</p>` : ""}
-  ${s.ctaLabel ? `<a class="btn" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}
+  <div class="wrap">
+    <div>
+      ${s.subheading ? `<div class="eyebrow">${esc(s.subheading)}</div>` : ""}
+      <h1 class="display">${esc(s.heading)}</h1>
+      ${s.body ? `<p class="lede">${esc(s.body)}</p>` : ""}
+      <div class="ctas">${s.ctaLabel ? `<a class="btn btn--primary" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}</div>
+      <div class="meta"><span><b>${String((s.items || []).length || 3)}</b>Proof points</span><span><b>Static</b>Export ready</span></div>
+    </div>
+    ${s.imageUrl ? `<figure class="hero-figure"><img src="${esc(s.imageUrl)}" alt="" loading="lazy" /></figure>` : `<div class="hero-figure"></div>`}
+  </div>
 </section>`;
     case "feature-grid":
-      return `<section class="features">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  ${s.subheading ? `<p class="muted">${esc(s.subheading)}</p>` : ""}
-  <div class="grid grid-3">
-    ${(s.items || [])
-      .map(
-        (it) =>
-          `<article class="card"><h3>${esc(it.title)}</h3><p>${esc(it.body)}</p></article>`,
-      )
-      .join("")}
+      return `<section class="section features">
+  <div class="wrap">
+    ${sectionHead("Capabilities", s.heading, s.subheading)}
+    <div class="feature-grid">
+      ${(s.items || []).map((it) => `<article class="card"><h3>${esc(it.title)}</h3><p>${esc(it.body)}</p></article>`).join("")}
+    </div>
   </div>
 </section>`;
     case "image-split":
-      return `<section class="split ${s.alignment === "right" ? "reverse" : ""}">
-  <div>
-    ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-    ${s.body ? `<p>${esc(s.body)}</p>` : ""}
-    ${s.ctaLabel ? `<a class="btn" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}
+      return `<section class="section image-split">
+  <div class="wrap split ${s.alignment === "right" ? "reverse" : ""}">
+    <div>
+      ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
+      ${s.body ? `<p class="lede">${esc(s.body)}</p>` : ""}
+      ${s.ctaLabel ? `<a class="btn" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}
+    </div>
+    ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy" />` : ""}
   </div>
-  ${s.imageUrl ? `<img src="${esc(s.imageUrl)}" alt="" loading="lazy" />` : ""}
 </section>`;
     case "stats":
-      return `<section class="stats">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  <div class="grid grid-4 stats-grid">
-    ${(s.items || [])
-      .map(
-        (it) =>
-          `<div class="stat"><div class="stat-value">${esc(it.value)}</div><div class="stat-label">${esc(it.label)}</div></div>`,
-      )
-      .join("")}
+      return `<section class="section stats">
+  <div class="wrap">
+    ${sectionHead("Signals", s.heading)}
+    <div class="stats-grid">
+      ${(s.items || []).map((it) => `<div class="stat card"><div class="stat-value">${esc(it.value)}</div><div class="stat-label">${esc(it.label)}</div></div>`).join("")}
+    </div>
   </div>
 </section>`;
     case "quote":
-      return `<section class="quote">
-  <blockquote>“${esc(s.body)}”</blockquote>
-  ${s.attribution ? `<div class="muted">— ${esc(s.attribution)}</div>` : ""}
+      return `<section class="section pullquote">
+  <div class="wrap">
+    <div class="mark">“</div>
+    <div><blockquote>${esc(s.body)}</blockquote>${s.attribution ? `<cite>— ${esc(s.attribution)}</cite>` : ""}</div>
+  </div>
 </section>`;
     case "gallery":
       return `<section class="gallery">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  <div class="grid grid-3">
-    ${(s.imageUrls || [])
-      .map((src) => `<img src="${esc(src)}" alt="" loading="lazy" />`)
-      .join("")}
+  <div class="wrap">
+    <div class="head"><div class="eyebrow">Gallery</div>${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}</div>
+    <div class="pair">${(s.imageUrls || []).slice(0, 2).map((src, index) => `<figure><img src="${esc(src)}" alt="" loading="lazy" /><figcaption>Image ${index + 1}</figcaption></figure>`).join("")}</div>
   </div>
 </section>`;
     case "logos":
-      return `<section class="logos">
-  <div class="muted center">${esc(s.heading) || "Trusted by"}</div>
-  <div class="logo-row">${(s.items || [])
-    .map((it) => `<span>${esc(it.label || it.title)}</span>`)
-    .join("")}</div>
+      return `<section class="section logos">
+  <div class="wrap">
+    <div class="eyebrow">${esc(s.heading) || "Proof"}</div>
+    <div class="logo-row">${(s.items || []).map((it) => `<span>${esc(it.label || it.title)}</span>`).join("")}</div>
+  </div>
 </section>`;
     case "pricing":
-      return `<section class="pricing">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  <div class="grid grid-3">
-    ${(s.items || [])
-      .map(
-        (it) => `<article class="card pricing-card">
-      <div class="muted">${esc(it.label)}</div>
-      <div class="price">${esc(it.value)}</div>
-      <p>${esc(it.body)}</p>
-    </article>`,
-      )
-      .join("")}
+      return `<section class="section pricing">
+  <div class="wrap">
+    ${sectionHead("Process", s.heading)}
+    <div class="feature-grid">${(s.items || []).map((it) => `<article class="card pricing-card"><div class="muted">${esc(it.label)}</div><div class="price">${esc(it.value)}</div><p>${esc(it.body)}</p></article>`).join("")}</div>
   </div>
 </section>`;
     case "faq":
       return `<section class="faq">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  <div class="faq-list">
-    ${(s.items || [])
-      .map(
-        (it) =>
-          `<details><summary>${esc(it.title)}</summary><p>${esc(it.body)}</p></details>`,
-      )
-      .join("")}
+  <div class="wrap grid">
+    <div>${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}</div>
+    <div>${(s.items || []).map((it) => `<details><summary>${esc(it.title)}</summary><div>${esc(it.body)}</div></details>`).join("")}</div>
   </div>
 </section>`;
     case "team":
-      return `<section class="team">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  <div class="grid grid-4">
-    ${(s.items || [])
-      .map(
-        (it) =>
-          `<div class="member"><div class="avatar"></div><div class="member-name">${esc(it.title)}</div><div class="muted">${esc(it.label)}</div></div>`,
-      )
-      .join("")}
+      return `<section class="section team">
+  <div class="wrap">
+    ${sectionHead("Team", s.heading)}
+    <div class="stats-grid">${(s.items || []).map((it) => `<div class="member"><div class="avatar"></div><div class="member-name">${esc(it.title)}</div><div class="muted">${esc(it.label)}</div></div>`).join("")}</div>
   </div>
 </section>`;
     case "contact":
-      return `<section class="contact">
-  ${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}
-  ${s.subheading ? `<p class="muted">${esc(s.subheading)}</p>` : ""}
-  <form class="contact-form" onsubmit="event.preventDefault();alert('Demo only.');">
-    <input type="text" placeholder="Your name" required />
-    <input type="email" placeholder="Email" required />
-    <textarea rows="4" placeholder="Message" required></textarea>
-    <button type="submit" class="btn">${esc(s.ctaLabel) || "Send message"}</button>
-  </form>
+      return `<section class="section contact">
+  <div class="wrap contact-layout">
+    <div>${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}${s.subheading ? `<p class="lede">${esc(s.subheading)}</p>` : ""}</div>
+    <form onsubmit="event.preventDefault();alert('Static export: connect this form before launch.');">
+      <div class="field"><label>Name</label><input type="text" required /></div>
+      <div class="field"><label>Email</label><input type="email" required /></div>
+      <div class="field full"><label>Message</label><textarea required></textarea></div>
+      <button type="submit" class="btn btn--primary">${esc(s.ctaLabel) || "Send message"}</button>
+    </form>
+  </div>
 </section>`;
     case "cta":
     default:
-      return `<section class="cta-section" style="background:${p.primary};color:${p.bg};">
-  <h2 style="color:${p.bg};">${esc(s.heading)}</h2>
-  ${s.subheading ? `<p>${esc(s.subheading)}</p>` : ""}
-  ${s.ctaLabel ? `<a class="btn inverse" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}
+      return `<section class="cta-banner">
+  <div class="wrap">
+    <div>${s.heading ? `<h2>${esc(s.heading)}</h2>` : ""}${s.subheading ? `<p>${esc(s.subheading)}</p>` : ""}</div>
+    <div class="ctas">${s.ctaLabel ? `<a class="btn btn--primary" href="${esc(s.ctaHref) || "#"}">${esc(s.ctaLabel)}</a>` : ""}</div>
+  </div>
 </section>`;
   }
 }
@@ -573,15 +567,24 @@ export function pageHTML(page: RedesignPage, t: DesignTemplate, redesign: Redesi
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<header class="site-header">
-  <a class="brand" href="index.html">${esc(redesign.brand.name)}</a>
-  <nav>${nav}</nav>
+<header class="masthead">
+  <div class="wrap">
+    <div></div>
+    <a class="wordmark" href="index.html"><span class="name">${esc(redesign.brand.name)}</span><span class="est">Static conversion system</span></a>
+    <nav>${nav}</nav>
+  </div>
 </header>
 <main>
 ${body}
 </main>
-<footer class="site-footer">
-  <div>© ${new Date().getFullYear()} ${esc(redesign.brand.name)} · ${esc(redesign.brand.tagline)}</div>
+<footer class="colophon">
+  <div class="wrap">
+    <div class="brand-block"><span class="name">${esc(redesign.brand.name)}</span><p>${esc(redesign.brand.tagline)}</p></div>
+    <div><h5>Pages</h5><ul>${pageList(redesign)}</ul></div>
+    <div><h5>Template</h5><ul><li>${esc(t.name)}</li><li>${esc(t.id)}</li></ul></div>
+    <div><h5>Handoff</h5><ul><li>HTML/CSS export</li><li>Design system included</li></ul></div>
+    <div class="legal">© ${new Date().getFullYear()} ${esc(redesign.brand.name)}<span>Generated by WebSwap</span></div>
+  </div>
 </footer>
 </body>
 </html>
@@ -604,109 +607,14 @@ export function pageFilename(page: RedesignPage, redesign: Redesign): string {
   return `${page.slug || `page-${idx + 1}`}.html`;
 }
 
+function pageList(redesign: Redesign): string {
+  return redesign.pages
+    .map((page) => `<li><a href="${esc(pageFilename(page, redesign))}">${esc(page.title)}</a></li>`)
+    .join("");
+}
+
 export function styleSheet(t: DesignTemplate): string {
-  const p = t.palette;
-  const upper = t.typography.headingCase === "uppercase";
-  const italic = t.typography.headingStyle === "italic";
-  return `:root {
-  --bg: ${p.bg};
-  --surface: ${p.surface};
-  --text: ${p.text};
-  --muted: ${p.muted};
-  --primary: ${p.primary};
-  --accent: ${p.accent};
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: '${t.typography.body}', system-ui, sans-serif;
-  font-weight: ${t.typography.bodyWeight};
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-h1, h2, h3 {
-  font-family: '${t.typography.heading}', serif;
-  font-weight: ${t.typography.headingWeight};
-  font-style: ${italic ? "italic" : "normal"};
-  text-transform: ${upper ? "uppercase" : "none"};
-  letter-spacing: ${upper ? "0.04em" : "-0.02em"};
-  line-height: 1.05;
-  margin: 0 0 0.5em;
-}
-h1 { font-size: clamp(2.5rem, 7vw, 5.5rem); }
-h2 { font-size: clamp(1.75rem, 3vw, 2.75rem); }
-h3 { font-size: 1.15rem; margin-bottom: 0.5rem; }
-a { color: inherit; text-decoration: none; }
-p { color: var(--muted); margin: 0 0 1rem; }
-.muted { color: var(--muted); }
-.center { text-align: center; }
-.kicker {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 1rem;
-}
-.site-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 1.5rem 2rem; border-bottom: 1px solid ${p.muted}22;
-}
-.site-header .brand {
-  font-family: '${t.typography.heading}', serif;
-  font-weight: 700; letter-spacing: -0.02em;
-  text-transform: ${upper ? "uppercase" : "none"};
-}
-.site-header nav { display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--muted); }
-main > section { padding: clamp(3rem, 8vw, 6rem) 2rem; max-width: 1200px; margin: 0 auto; }
-.hero .lead { max-width: 640px; font-size: 1.125rem; }
-.btn {
-  display: inline-block;
-  padding: 0.9rem 1.75rem;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--bg);
-  font-weight: 700;
-  margin-top: 1.25rem;
-  transition: transform 0.15s;
-  cursor: pointer;
-  border: 0;
-}
-.btn:hover { transform: translateY(-1px); }
-.btn.inverse { background: var(--bg); color: var(--primary); }
-.grid { display: grid; gap: 1.5rem; }
-.grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-.grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.card { background: var(--surface); border: 1px solid ${p.muted}22; padding: 1.5rem; border-radius: 16px; }
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-.split.reverse > *:first-child { order: 2; }
-.split img { width: 100%; height: 100%; max-height: 420px; object-fit: cover; border-radius: 16px; }
-.stats { background: var(--surface); }
-.stats-grid { margin-top: 2rem; }
-.stat-value { font-family: '${t.typography.heading}', serif; font-size: 2.5rem; color: var(--accent); font-weight: ${t.typography.headingWeight}; }
-.stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-top: 0.25rem; }
-.quote blockquote { font-family: '${t.typography.heading}', serif; font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.3; max-width: 900px; margin: 0 0 1rem; font-style: ${italic ? "italic" : "normal"}; }
-.gallery img { width: 100%; height: 220px; object-fit: cover; border-radius: 12px; }
-.logos { background: var(--surface); padding: 2.5rem 2rem; }
-.logo-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 2.5rem; margin-top: 1.5rem; opacity: 0.7; font-family: '${t.typography.heading}', serif; font-weight: ${t.typography.headingWeight}; }
-.pricing-card .price { font-family: '${t.typography.heading}', serif; font-size: 2rem; margin: 0.5rem 0; color: var(--text); }
-.faq details { padding: 1rem 0; border-bottom: 1px solid ${p.muted}30; }
-.faq summary { font-weight: 700; cursor: pointer; color: var(--text); }
-.member .avatar { aspect-ratio: 1/1; background: var(--surface); border-radius: 16px; margin-bottom: 0.75rem; }
-.member-name { font-weight: 700; }
-.contact-form { display: grid; gap: 0.75rem; max-width: 480px; margin-top: 2rem; }
-.contact-form input, .contact-form textarea { padding: 0.85rem; border-radius: 10px; background: var(--bg); color: var(--text); border: 1px solid ${p.muted}40; font-family: inherit; }
-.cta-section { text-align: center; }
-.cta-section p { color: inherit; opacity: 0.85; max-width: 640px; margin: 0 auto 1.25rem; }
-.site-footer { padding: 2rem; border-top: 1px solid ${p.muted}22; color: var(--muted); font-size: 0.85rem; text-align: center; }
-@media (max-width: 720px) {
-  .split { grid-template-columns: 1fr; }
-  .split.reverse > *:first-child { order: 0; }
-  .site-header nav { display: none; }
-}
-`;
+  return generateTemplateCSS(t);
 }
 
 export async function buildExportZip(
@@ -719,9 +627,10 @@ export async function buildExportZip(
     zip.file(filename, pageHTML(page, template, redesign));
   }
   zip.file("styles.css", styleSheet(template));
+  zip.file("DESIGN_SYSTEM.md", designSystemMarkdown(redesign, template));
   zip.file(
     "README.txt",
-    `WebSwap demo export
+    `WebSwap static site export
 Brand: ${redesign.brand.name}
 Template: ${template.name} (${template.id})
 Pages: ${redesign.pages.map((p, i) => `${i + 1}. ${p.title}`).join(", ")}
@@ -732,4 +641,41 @@ loaded from the original site — downloading/caching those locally is
 left to the final build.
 `,
   );
+}
+
+function designSystemMarkdown(redesign: Redesign, template: DesignTemplate): string {
+  return `# ${redesign.brand.name} Design System
+
+## Template
+
+- Template: ${template.name}
+- Template ID: ${template.id}
+- Mood: ${template.mood.join(", ")}
+
+## Palette
+
+- Primary: ${template.palette.primary}
+- Accent: ${template.palette.accent}
+- Background: ${template.palette.bg}
+- Surface: ${template.palette.surface}
+- Text: ${template.palette.text}
+- Muted: ${template.palette.muted}
+
+## Typography
+
+- Heading: ${template.typography.heading} (${template.typography.headingWeight})
+- Body: ${template.typography.body} (${template.typography.bodyWeight})
+
+## Layout DNA
+
+${template.layoutDNA}
+
+## Generated Pages
+
+${redesign.pages.map((page, index) => `${index + 1}. ${page.title} (${pageFilename(page, redesign)})`).join("\n")}
+
+## Final Agent Handoff
+
+Use the exported HTML and CSS as the canonical implementation baseline. Preserve the palette, typography, spacing rhythm, and section structure unless a client-specific edit requires a deliberate deviation.
+`;
 }

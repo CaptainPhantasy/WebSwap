@@ -14,7 +14,7 @@ import type {
 import type { BuildBlueprint } from "./blueprint";
 import { buildExportZip, pageHTML, styleSheet } from "./render";
 import { resolveWorkspace, type WorkspaceOptions } from "./workspaces";
-import { classifySecondaryPage } from "./pageClassifier";
+import { classifySiteIndustry, classifySecondaryPage } from "./pageClassifier";
 
 export interface BuildWorkspaceArtifact {
   workspaceId: string;
@@ -99,19 +99,9 @@ export function buildLocalRedesign(
     palette: template.palette,
     typography: template.typography,
     pages,
-    suggestions: suggestionsFor(site, template),
-    metrics: {
-      designScore: "92/100",
-      contentClarity: "A-",
-      loadSpeed: "Static",
-      accessibility: "AA-ready",
-    },
-    chartData: [
-      { section: "Hero", weight: 92, target: 95 },
-      { section: "Content", weight: 88, target: 90 },
-      { section: "Trust", weight: 84, target: 88 },
-      { section: "Conversion", weight: 90, target: 92 },
-    ],
+    suggestions: suggestionsFor(site, template, pages.length),
+    metrics: metricsFor(site, pages),
+    chartData: chartDataFor(site, pages),
   };
 }
 
@@ -131,28 +121,27 @@ async function writePreviewFiles(
 }
 
 function normalizePagePlans(blueprint: BuildBlueprint, site: ScrapedSite): BuildBlueprint["pagePlan"] {
-  const plans = blueprint.pagePlan.slice(0, 3).map((plan, index) => ({
-    ...plan,
-    slug: normalizeSlug(index === 0 ? "home" : plan.slug || `page-${index + 1}`),
-    title: clean(plan.title) || (index === 0 ? "Home" : `Page ${index + 1}`),
-    sourcePageRefs: plan.sourcePageRefs.length ? plan.sourcePageRefs : [0],
-    sectionPlan: plan.sectionPlan.length ? plan.sectionPlan : [],
-  }));
+  const seenSlugs = new Set<string>();
+  const plans = blueprint.pagePlan.slice(0, 12).map((plan, index) => {
+    const slugBase = normalizeSlug(index === 0 ? "home" : plan.slug || `page-${index + 1}`);
+    const slug = uniqueSlug(slugBase, seenSlugs);
+    return {
+      ...plan,
+      slug,
+      title: clean(plan.title) || (index === 0 ? "Home" : `Page ${index + 1}`),
+      sourcePageRefs: plan.sourcePageRefs.length ? plan.sourcePageRefs : [0],
+      sectionPlan: plan.sectionPlan.length ? plan.sectionPlan : [],
+    };
+  });
 
-function fallbackPageForIndex(index: number, site: ScrapedSite): { slug: string; title: string } {
-  if (index === 2) return { slug: "contact", title: "Contact" };
-  const result = classifySecondaryPage(site);
-  return { slug: result.slug, title: result.title };
-}
-
-  // Determine appropriate secondary page label for this industry
   while (plans.length < 3) {
     const index = plans.length;
     const fallback = fallbackPageForIndex(index, site);
+    const slug = uniqueSlug(index === 0 ? "home" : fallback.slug, seenSlugs);
     plans.push({
-      slug: fallback.slug,
+      slug,
       title: fallback.title,
-      sourcePageRefs: [0],
+      sourcePageRefs: [Math.min(index, Math.max(0, site.pages.length - 1))],
       sectionPlan: [
         { kind: "hero", sourceRefs: [], intent: "Introduce page.", copyBrief: "Use source content." },
         { kind: "feature-grid", sourceRefs: [], intent: "Summarize proof.", copyBrief: "Use source content." },
@@ -162,6 +151,12 @@ function fallbackPageForIndex(index: number, site: ScrapedSite): { slug: string;
   }
 
   return plans as BuildBlueprint["pagePlan"];
+}
+
+function fallbackPageForIndex(index: number, site: ScrapedSite): { slug: string; title: string } {
+  if (index === 2) return { slug: "contact", title: "Contact" };
+  const result = classifySecondaryPage(site);
+  return { slug: result.slug, title: result.title };
 }
 
 function buildSection(
@@ -392,11 +387,13 @@ function faqItems(page: ScrapedPage, site: ScrapedSite): RedesignSection["items"
   ];
 }
 
-function suggestionsFor(site: ScrapedSite, template: DesignTemplate): string[] {
+function suggestionsFor(site: ScrapedSite, template: DesignTemplate, pageCount: number): string[] {
+  const industry = classifySiteIndustry(site);
   const suggestions = [
-    `Use ${template.name} to keep the redesign visually consistent across all three pages.`,
+    `Use ${template.name} across ${pageCount} generated pages because it fits ${template.bestFor.join(", ")}.`,
+    `Industry classifier: ${industry.category} (${Math.round(industry.confidence * 100)}% confidence) from ${industry.evidence.slice(0, 2).join("; ") || "source content"}.`,
+    `Recommended templates: ${template.id} is the selected option; compare the two alternate ranked templates before client handoff.`,
     "Keep the primary CTA consistent from hero to final contact section.",
-    "Replace any thin source copy with specific service proof before production launch.",
   ];
   if (!site.brand.phones.length && !site.brand.emails.length) {
     suggestions.push("Add a visible phone number or email address before sending traffic to the contact page.");
@@ -404,8 +401,39 @@ function suggestionsFor(site: ScrapedSite, template: DesignTemplate): string[] {
   if (site.allImages.length === 0) {
     suggestions.push("Add real photography to increase trust and reduce generic stock-site feel.");
   }
+  if (pageCount < Math.min(6, site.pages.length)) {
+    suggestions.push("Review lower-priority source pages manually if the client needs a deeper conversion sitemap.");
+  }
   return suggestions;
 }
+
+function metricsFor(site: ScrapedSite, pages: RedesignPage[]): Redesign["metrics"] {
+  const pagesReviewed = site.pages.length;
+  const generatedPages = pages.length;
+  const copyBlocks = totalParagraphs(site);
+  const contactPaths = site.brand.phones.length + site.brand.emails.length;
+  const imageCoverage = Math.min(100, Math.round((site.allImages.length / Math.max(1, generatedPages)) * 25));
+  const clarityScore = Math.min(100, 55 + Math.min(20, copyBlocks * 2) + Math.min(15, contactPaths * 5) + Math.min(10, pagesReviewed));
+  return {
+    designScore: `${Math.min(98, 70 + generatedPages * 2 + Math.round(imageCoverage / 10))}/100`,
+    contentClarity: clarityScore >= 90 ? "A" : clarityScore >= 80 ? "B+" : clarityScore >= 70 ? "B" : "C+",
+    loadSpeed: "Static export",
+    accessibility: "Semantic HTML baseline",
+  };
+}
+
+function chartDataFor(site: ScrapedSite, pages: RedesignPage[]): Redesign["chartData"] {
+  const totalSections = pages.reduce((sum, page) => sum + page.sections.length, 0);
+  const contactPaths = site.brand.phones.length + site.brand.emails.length;
+  const imageCount = site.allImages.length;
+  return [
+    { section: "Source Pages", weight: Math.min(100, site.pages.length * 12), target: Math.min(100, Math.max(36, site.pages.length * 10)) },
+    { section: "Sections", weight: Math.min(100, totalSections * 5), target: 80 },
+    { section: "Images", weight: Math.min(100, imageCount * 12), target: 75 },
+    { section: "Conversion", weight: Math.min(100, 60 + contactPaths * 15 + site.pages.flatMap((page) => page.ctas).length * 3), target: 90 },
+  ];
+}
+
 
 function bestCta(page: ScrapedPage, site: ScrapedSite): string {
   return clean(page.ctas[0]) || clean(site.pages.flatMap((p) => p.ctas)[0]) || (site.brand.phones[0] ? "Call now" : "Get in touch");
@@ -418,11 +446,35 @@ function contactLine(site: ScrapedSite, page: ScrapedPage): string {
 }
 
 function pickImage(site: ScrapedSite, role: "hero" | "content" | "logo"): ScrapedImage | undefined {
-  return site.allImages.find((image) => image.role === role) || site.allImages.find((image) => image.role !== "logo") || site.allImages[0];
+  const candidates = site.allImages.filter((image) => role === "logo" ? image.role === "logo" : image.role !== "logo");
+  if (role === "hero") {
+    return candidates.find((image) => image.role === "hero") || largestImage(candidates) || site.allImages[0];
+  }
+  if (role === "content") {
+    return candidates.find((image) => image.role === "content") || candidates.find((image) => image.role === "hero") || largestImage(candidates) || site.allImages[0];
+  }
+  return site.allImages.find((image) => image.role === "logo") || site.allImages[0];
+}
+
+function largestImage(images: ScrapedImage[]): ScrapedImage | undefined {
+  return images
+    .filter((image) => image.width || image.height)
+    .sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)))[0];
 }
 
 function pickImages(site: ScrapedSite, limit: number): ScrapedImage[] {
   return Array.from(new Map(site.allImages.map((image) => [image.src, image])).values()).slice(0, limit);
+}
+
+function uniqueSlug(slug: string, seen: Set<string>): string {
+  let candidate = slug;
+  let suffix = 2;
+  while (seen.has(candidate)) {
+    candidate = `${slug}-${suffix}`;
+    suffix += 1;
+  }
+  seen.add(candidate);
+  return candidate;
 }
 
 function normalizeSlug(value: string): string {

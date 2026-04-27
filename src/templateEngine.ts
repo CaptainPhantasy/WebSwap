@@ -5,7 +5,7 @@ import type { DesignTemplate } from "./types";
 // produces a clean, usable stylesheet from palette and typography alone.
 
 export function generateTemplateCSS(template: DesignTemplate): string {
-  return basicCSS(template);
+  return `${basicCSS(template)}\n${templateVariantCSS(template)}`;
 }
 
 // ── Fallback for templates without design system ──
@@ -20,6 +20,7 @@ function basicCSS(template: DesignTemplate): string {
   --muted: ${p.muted};
   --accent: ${p.accent};
   --accent-dim: ${p.primary};
+  --primary: ${p.primary};
   --rule: ${p.muted}33;
   --heading-stack: '${t.heading}', serif;
   --body-stack: '${t.body}', sans-serif;
@@ -69,7 +70,7 @@ h4 { font-size: 18px; letter-spacing: 0.02em; }
 .hero .meta b { font-family: var(--heading-stack); font-weight: ${t.headingWeight}; color: var(--ink); display: block; font-size: 24px; }
 .hero .ctas { display: flex; gap: 18px; margin-top: 28px; flex-wrap: wrap; align-items: center; }
 .hero-figure { position: relative; }
-.hero-figure img { width: 100%; aspect-ratio: 4/5; object-fit: cover; ${p.muted} }
+.hero-figure img { width: 100%; aspect-ratio: 4/5; object-fit: cover; border: 1px solid var(--rule); }
 /* ── Cards ── */
 .card { background: var(--surface); border: 1px solid var(--rule); padding: 32px 28px; border-radius: 12px; transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -22px rgba(0,0,0,0.25); }
@@ -180,4 +181,29 @@ h4 { font-size: 18px; letter-spacing: 0.02em; }
   .contact-layout form { grid-template-columns: 1fr; }
 }
 `;
+}
+
+function templateVariantCSS(template: DesignTemplate): string {
+  const radius = template.id === "brutalist-grid" || template.id === "technical-data" ? "0px" : template.id === "warm-organic" ? "28px" : "16px";
+  const sectionRule = template.id === "brutalist-grid" ? "2px solid var(--ink)" : "1px solid var(--rule)";
+  const buttonShape = template.id === "warm-organic" || template.id === "saas-split" ? "999px" : radius;
+  const heroAlign = template.id === "editorial-serif" || template.id === "sculptural-minimal" ? "center" : "left";
+  const maxWidth = template.id === "dark-monolith" ? "980px" : template.id === "clean-utility" || template.id === "technical-data" ? "1320px" : "1240px";
+
+  return `/* template-variant:${template.id} */
+:root {
+  --card-radius: ${radius};
+  --button-radius: ${buttonShape};
+  --template-max-width: ${maxWidth};
+  --template-section-rule: ${sectionRule};
+}
+.wrap { max-width: var(--template-max-width); }
+.card, .review, .contact-layout .field input, .contact-layout .field textarea { border-radius: var(--card-radius); }
+.btn { border-radius: var(--button-radius); }
+.section + .section { border-top: var(--template-section-rule); }
+.hero .wrap { text-align: ${heroAlign}; }
+${template.id === "brutalist-grid" ? ".section { counter-increment: section; } .section .wrap::before { content: '§' counter(section, decimal-leading-zero); display: block; font-family: var(--heading-stack); color: var(--accent); margin-bottom: 18px; }" : ""}
+${template.id === "atmospheric-glass" ? ".card, .review { backdrop-filter: blur(18px); box-shadow: inset 0 1px rgba(255,255,255,0.12); }" : ""}
+${template.id === "warm-organic" ? ".hero-figure img, .gallery figure img { border-radius: 32px; }" : ""}
+${template.id === "technical-data" ? "body { font-variant-numeric: tabular-nums; } .card { border-style: dashed; }" : ""}`;
 }

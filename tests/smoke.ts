@@ -370,6 +370,23 @@ const ALL_KINDS: SectionKind[] = [
     assert(css.includes("@media"), "no media query");
   });
 
+  await test("styleSheet: emits conversion-engine shell selectors", () => {
+    const css = styleSheet(t);
+    for (const selector of [".masthead", ".wordmark", ".hero .wrap", ".feature-grid", ".cta-banner", ".colophon"]) {
+      assert(css.includes(selector), `missing selector ${selector}`);
+    }
+  });
+
+  await test("styleSheet: template variants materially change CSS beyond token values", () => {
+    const editorial = styleSheet(DESIGN_TEMPLATES[0]);
+    const brutalist = styleSheet(DESIGN_TEMPLATES[2]);
+    const warm = styleSheet(DESIGN_TEMPLATES[3]);
+    assert(editorial.includes("template-variant:editorial-serif"), "missing editorial variant marker");
+    assert(brutalist.includes("template-variant:brutalist-grid"), "missing brutalist variant marker");
+    assert(warm.includes("template-variant:warm-organic"), "missing warm variant marker");
+    assert(new Set([editorial, brutalist, warm]).size === 3, "template CSS did not vary");
+  });
+
   // Full 3-page redesign structure
   const mockRedesign: Redesign = {
     brand: { name: "Acme Roasters", tagline: "Small-batch coffee.", voice: "warm, earnest" },
@@ -444,6 +461,13 @@ const ALL_KINDS: SectionKind[] = [
     assert(html.includes("Acme Roasters"), "brand missing");
   });
 
+  await test("pageHTML: emits canonical conversion-engine shell", () => {
+    const html = pageHTML(mockRedesign.pages[0], t, mockRedesign);
+    assert(html.includes('class="masthead"'), "missing masthead");
+    assert(html.includes('class="wordmark"'), "missing wordmark");
+    assert(html.includes('class="colophon"'), "missing colophon");
+  });
+
   await test("pageHTML: nav links within redesign are rewritten to local .html", () => {
     const html = pageHTML(mockRedesign.pages[0], t, mockRedesign);
     assert(html.includes('href="about.html"') || html.includes("index.html"), "no rewrite");
@@ -465,10 +489,11 @@ const ALL_KINDS: SectionKind[] = [
     const zip = new JSZip();
     await buildExportZip(zip, mockRedesign, t);
     const idx = await zip.file("index.html")!.async("string");
-    assert(idx.includes("class=\"hero\""), "no hero");
-    assert(idx.includes("class=\"features\""), "no features");
-    assert(idx.includes("class=\"stats\""), "no stats");
-    assert(idx.includes("class=\"cta-section\"") || idx.includes("class='cta-section'"), "no cta");
+    assert(idx.includes('class="hero"'), "no hero");
+    assert(idx.includes('class="wrap"'), "no wrap");
+    assert(idx.includes('class="feature-grid"'), "no feature grid");
+    assert(idx.includes('class="stats-grid"'), "no stats grid");
+    assert(idx.includes('class="cta-banner"'), "no cta banner");
   });
 
   await test("buildExportZip: styles.css is syntactically balanced (braces match)", async () => {
@@ -486,6 +511,14 @@ const ALL_KINDS: SectionKind[] = [
     const readme = await zip.file("README.txt")!.async("string");
     assert(readme.includes("Acme Roasters"), "no brand");
     assert(readme.includes(t.id) || readme.includes(t.name), "no template");
+  });
+
+  await test("buildExportZip: includes design system handoff", async () => {
+    const zip = new JSZip();
+    await buildExportZip(zip, mockRedesign, t);
+    const designSystem = await zip.file("DESIGN_SYSTEM.md")?.async("string");
+    assert(typeof designSystem === "string" && designSystem.includes(t.layoutDNA), "missing design system handoff");
+    assert(designSystem.includes("Template"), "missing template summary");
   });
 
   // XSS: ensure user-controlled content in exported HTML is escaped
